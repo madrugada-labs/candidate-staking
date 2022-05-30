@@ -1,7 +1,10 @@
 [features]
 seeds = false
 [programs.localnet]
-candidate_staking = "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS"
+candidate_staking = "BF1jhf5eA5X1Tu8JByv8htnkUaG6WzmYEMLx2kbZ7YiW"
+job = "69dteSt8rK7HLvku1kqXhw4UsmanCGa8sDcqxgeeYUS8"
+application = "Fxe3yzwDaKnK8e2Mj4CqrK2YvTbFaUhqmnuTyH1dJWcX"
+general = "CYSyfydPYcjjf3uXPHK5sPTpucuWy5vP1BYqcjKDZzB3" 
 
 [registry]
 url = "https://anchor.projectserum.com"
