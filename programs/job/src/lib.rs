@@ -1,8 +1,12 @@
 use anchor_lang::prelude::*;
+use general::program::General;
+use general::{self, GeneralParameter};
+
 
 declare_id!("69dteSt8rK7HLvku1kqXhw4UsmanCGa8sDcqxgeeYUS8");
 
 const JOB_FACTORY_SEED: &'static [u8] = b"jobfactory";
+const GENERAL_SEED: &'static [u8] = b"general";
 
 #[program]
 pub mod job {
@@ -18,6 +22,17 @@ pub mod job {
 
         Ok(())
     }
+
+    pub fn check_data(ctx: Context<CheckData>,job_ad_id: String, base_bump: u8, general_bump: u8 ) -> Result<()> {
+
+        let parameter = &mut ctx.accounts.general_account;
+        let x = parameter.mint.clone();
+
+        msg!(&x);
+
+        Ok(())
+    }
+
 }
 
 #[derive(Accounts)]
@@ -28,6 +43,16 @@ pub struct Initialize<'info> {
     #[account(mut)]
     pub authority: Signer<'info>,
     pub system_program: Program<'info, System>                                                 
+}
+
+#[derive(Accounts)]
+#[instruction(job_ad_id: String, base_bump: u8, general_bump: u8)]
+pub struct CheckData<'info> {
+    #[account(mut, seeds = [JOB_FACTORY_SEED, job_ad_id.as_bytes()[..18].as_ref(), job_ad_id.as_bytes()[18..].as_ref()], bump = base_bump)]
+    pub base_account: Account<'info, JobStakingParameter>,
+    #[account(mut, seeds = [GENERAL_SEED], bump = general_bump, seeds::program = other_program.key())]
+    pub general_account: Account<'info, GeneralParameter>,
+    pub other_program: Program<'info,General>
 }
 
 #[account]
