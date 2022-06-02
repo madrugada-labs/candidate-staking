@@ -6,6 +6,7 @@ import {Job} from '../target/types/job';
 import {Application} from '../target/types/application';
 import {v4 as uuidv4} from "uuid";
 const assert = require("assert");
+import * as spl from '@solana/spl-token'
 
 describe("candidate_staking", () => {
   // Configure the client to use the local cluster.
@@ -22,6 +23,8 @@ describe("candidate_staking", () => {
   let cas = anchor.web3.Keypair.generate(); // Stakeholder
   let dan = anchor.web3.Keypair.generate(); // Stakeholder
   const admin = anchor.web3.Keypair.generate(); // Admin
+
+  let USDCMint: anchor.web3.PublicKey; // token which would be staked
 
   it("Funds all users", async() => {
     await provider.connection.confirmTransaction(
@@ -175,7 +178,44 @@ describe("candidate_staking", () => {
 
       assert.equal(state.authority.toBase58(), cas.publicKey.toBase58());
       assert.equal(state.stakedAmount, 0);
+  })
 
+  it("create USDC mint and mint some tokens to stakeholders", async() => {
+
+
+    USDCMint = await spl.createMint(
+      provider.connection,
+      admin,
+      admin.publicKey,
+      null,
+      6
+    );
+
+    const mintAmount = 100000000;
+
+    const casTokenWallet = await spl.createAccount(
+      provider.connection,
+      cas,
+      USDCMint,
+      cas.publicKey
+    );
+
+    await spl.mintTo(
+      provider.connection,
+      cas,
+      USDCMint,
+      casTokenWallet,
+      admin.publicKey,
+      100000000,
+      [admin]
+    );
+
+    let _casTokenWallet = await spl.getAccount(
+      provider.connection,
+      casTokenWallet
+    );
+
+    assert.equal(mintAmount, _casTokenWallet.amount);
 
   })
 
