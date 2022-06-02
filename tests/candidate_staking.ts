@@ -119,6 +119,10 @@ describe("candidate_staking", () => {
       otherProgram: generalProgram.programId
     }).rpc();
 
+    const state = await generalProgram.account.generalParameter.fetch(generalPDA);
+
+    console.log(state.mint)
+
     // console.log("Your transaction signature", tx);
 
 
@@ -130,5 +134,31 @@ describe("candidate_staking", () => {
     // assert.strictEqual(maxAmountPerApplication, jobFactoryState.maxAmountPerApplication);
 
   });
+
+  it("Initializing Application Program", async() => {
+
+    const [applicationPDA, applicationBump] = await anchor.web3.PublicKey.findProgramAddress(
+      [Buffer.from("application"), Buffer.from(jobAdId.substring(0, 18)), Buffer.from(jobAdId.substring(18, 36)), bob.publicKey.toBuffer()],
+      applicationProgram.programId
+    )
+
+    let tx = await applicationProgram.methods.initialize(jobAdId).accounts({
+      baseAccount: applicationPDA,
+      authority: bob.publicKey,
+      systemProgram: anchor.web3.SystemProgram.programId
+    }).signers([bob]).rpc();
+
+    console.log(tx)
+
+    const state = await applicationProgram.account.applicationParameter.fetch(applicationPDA);
+
+
+    assert.equal(state.stakeAmount.toNumber(), 0)
+    assert.equal(state.authority.toBase58(), bob.publicKey.toBase58())
+    assert("pending" in state.status)
+
+
+
+  })
 
 });
