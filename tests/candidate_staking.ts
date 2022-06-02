@@ -148,15 +148,33 @@ describe("candidate_staking", () => {
       systemProgram: anchor.web3.SystemProgram.programId
     }).signers([bob]).rpc();
 
-    console.log(tx)
-
     const state = await applicationProgram.account.applicationParameter.fetch(applicationPDA);
 
 
-    assert.equal(state.stakeAmount.toNumber(), 0)
+    assert.equal(state.stakeAmount, 0)
     assert.equal(state.authority.toBase58(), bob.publicKey.toBase58())
     assert("pending" in state.status)
 
+  })
+
+  it("intialize candidate_staking program", async() => {
+
+      const [candidatePDA, candidateBump] = await anchor.web3.PublicKey.findProgramAddress(
+        [Buffer.from("candidate"), Buffer.from(jobAdId.substring(0, 18)), Buffer.from(jobAdId.substring(18, 36)), bob.publicKey.toBuffer(), cas.publicKey.toBuffer()],
+        candidateStakingProgram.programId
+      )
+
+      const tx = await candidateStakingProgram.methods.initialize(jobAdId).accounts({
+        baseAccount: candidatePDA,
+        authority: cas.publicKey,
+        applicant: bob.publicKey,
+        systemProgram: anchor.web3.SystemProgram.programId
+      }).signers([cas]).rpc();
+
+      const state = await candidateStakingProgram.account.candidateParameter.fetch(candidatePDA);
+
+      assert.equal(state.authority.toBase58(), cas.publicKey.toBase58());
+      assert.equal(state.stakedAmount, 0);
 
 
   })

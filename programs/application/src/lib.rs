@@ -21,7 +21,7 @@ pub mod application {
 #[derive(Accounts)]
 #[instruction(job_ad_id: String)]
 pub struct Initialize<'info> {
-    #[account(init, payer = authority, seeds = [APPLICATION_SEED, job_ad_id.as_bytes()[..18].as_ref(), job_ad_id.as_bytes()[18..].as_ref(), authority.key().as_ref()], bump, space = 4 + 32 + 40 + 8 )]
+    #[account(init, payer = authority, seeds = [APPLICATION_SEED, job_ad_id.as_bytes()[..18].as_ref(), job_ad_id.as_bytes()[18..].as_ref(), authority.key().as_ref()], bump, space = 4 + 32 + 1 + 8 )]
     pub base_account: Account<'info, ApplicationParameter>,
     #[account(mut)]
     pub authority: Signer<'info>,
@@ -37,9 +37,9 @@ pub enum JobStatus {
 
 #[account]
 pub struct ApplicationParameter {
-    pub authority: Pubkey,
-    pub status: JobStatus,
-    pub stake_amount: u64,
+    pub authority: Pubkey, // 32 bytes
+    pub status: JobStatus, // 1 byte
+    pub stake_amount: u32, // 4 bytes
 }
 
 impl ApplicationParameter {
