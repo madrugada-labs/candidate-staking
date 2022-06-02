@@ -2,14 +2,50 @@ use anchor_lang::prelude::*;
 
 declare_id!("Fxe3yzwDaKnK8e2Mj4CqrK2YvTbFaUhqmnuTyH1dJWcX");
 
+const APPLICATION_SEED: &'static [u8] = b"application";
+
 #[program]
 pub mod application {
     use super::*;
 
-    pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
+    pub fn initialize(ctx: Context<Initialize>, job_ad_id: String) -> Result<()> {
+
+        let parameter = &mut ctx.accounts.base_account;
+
+        parameter.reset(ctx.accounts.authority.key());
+
         Ok(())
     }
 }
 
 #[derive(Accounts)]
-pub struct Initialize {}
+#[instruction(job_ad_id: String)]
+pub struct Initialize<'info> {
+    #[account(init, payer = authority, seeds = [APPLICATION_SEED, job_ad_id.as_bytes()[..18].as_ref(), job_ad_id.as_bytes()[18..].as_ref(), authority.key().as_ref()], bump, space = 4 + 32 + 40 + 8 )]
+    pub base_account: Account<'info, ApplicationParameter>,
+    #[account(mut)]
+    pub authority: Signer<'info>,
+    pub system_program: Program<'info, System>    
+}
+
+#[derive(Debug, Clone, AnchorSerialize, AnchorDeserialize)]
+pub enum JobStatus {
+    Selected,
+    Rejected,
+    Pending
+}
+
+#[account]
+pub struct ApplicationParameter {
+    pub authority: Pubkey,
+    pub status: JobStatus,
+    pub stake_amount: u64,
+}
+
+impl ApplicationParameter {
+    pub fn reset(&mut self, authority: Pubkey) {
+        self.authority = authority;
+        self.status = JobStatus::Pending;
+        self.stake_amount = 0;
+    }
+}
