@@ -25,6 +25,9 @@ describe("candidate_staking", () => {
   const admin = anchor.web3.Keypair.generate(); // Admin
 
   let USDCMint: anchor.web3.PublicKey; // token which would be staked
+  let casTokenAccount: anchor.web3.PublicKey; // cas token account
+
+  let initialMintAmount = 100000000;
 
   it("Funds all users", async() => {
     await provider.connection.confirmTransaction(
@@ -91,31 +94,29 @@ describe("candidate_staking", () => {
       6
     );
 
-    const mintAmount = 100000000;
-
-    const casTokenWallet = await spl.createAccount(
+    casTokenAccount = await spl.createAccount(
       provider.connection,
       cas,
       USDCMint,
       cas.publicKey
-    );
+    )
 
     await spl.mintTo(
       provider.connection,
       cas,
       USDCMint,
-      casTokenWallet,
+      casTokenAccount,
       admin.publicKey,
-      100000000,
+      initialMintAmount,
       [admin]
     );
 
-    let _casTokenWallet = await spl.getAccount(
+    let _casTokenAccount = await spl.getAccount(
       provider.connection,
-      casTokenWallet
+      casTokenAccount
     );
 
-    assert.equal(mintAmount, _casTokenWallet.amount);
+    assert.equal(initialMintAmount, _casTokenAccount.amount);
 
   })
 
@@ -164,7 +165,6 @@ describe("candidate_staking", () => {
 
     const state = await generalProgram.account.generalParameter.fetch(generalPDA);
 
-    console.log(state.mint)
 
     // console.log("Your transaction signature", tx);
 
@@ -243,21 +243,43 @@ describe("candidate_staking", () => {
       generalProgram.programId
     );
 
+    const [walletPDA, walletBump] = await anchor.web3.PublicKey.findProgramAddress(
+      [Buffer.from("wallet")],
+      candidateStakingProgram.programId
+    )
+
     const stakeAmount = 1000;
     const stakeAmountInBN = new anchor.BN(stakeAmount);
 
-    const tx = await candidateStakingProgram.methods.stake(jobAdId, candidateBump, generalBump, applicationBump, jobBump, stakeAmountInBN).accounts({
+    let _casTokenWallet = await spl.getAccount(
+      provider.connection,
+      casTokenAccount
+    );    
+
+    const tx = await candidateStakingProgram.methods.stake(jobAdId, candidateBump, generalBump, applicationBump, jobBump,stakeAmountInBN).accounts({
       baseAccount: candidatePDA,
       authority: cas.publicKey,
       tokenMint: USDCMint,
       generalAccount: generalPDA,
-      jobAccount: jobPDA,
+      // jobAccount: jobPDA,
       applicationAccount: applicationPDA,
       applicant: bob.publicKey,
       generalProgram: generalProgram.programId,
       applicationProgram: applicationProgram.programId,
-      jobProgram: jobProgram.programId
+      jobProgram: jobProgram.programId,
+      escrowWalletState: walletPDA,
+      walletToWithdrawFrom: casTokenAccount,
+      systemProgram: anchor.web3.SystemProgram.programId,
+      tokenProgram: spl.TOKEN_PROGRAM_ID,
+      rent: anchor.web3.SYSVAR_RENT_PUBKEY,
     }).signers([cas]).rpc();
+
+    _casTokenWallet = await spl.getAccount(
+      provider.connection,
+      casTokenAccount
+    );
+
+    assert.equal(_casTokenWallet.amount, initialMintAmount - stakeAmount)
 
   })
 
