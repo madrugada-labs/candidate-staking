@@ -20,3 +20,8 @@ overflow-checks = true
 
 [dependencies]
 anchor-lang = "0.24.2"
+application = {path = "../application", features = ["cpi"] }
+job = {path = "../job", features = ["cpi"] }
+general = {path = "../general", features = ["cpi"] }
+anchor-spl = "0.24.2"
+spl-token = "3.2.0"

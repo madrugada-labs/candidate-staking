@@ -1,4 +1,6 @@
 use anchor_lang::prelude::*;
+use anchor_spl::{associated_token::AssociatedToken, token::{CloseAccount, Mint, Token, TokenAccount, Transfer}};    
+
 
 declare_id!("CYSyfydPYcjjf3uXPHK5sPTpucuWy5vP1BYqcjKDZzB3");
 
@@ -9,11 +11,11 @@ const GENERAL_SEED: &'static [u8] = b"general";
 pub mod general {
     use super::*;
 
-    pub fn initialize(ctx: Context<Initialize>, mint_key: String) -> Result<()> {
+    pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
 
         let parameters = &mut ctx.accounts.base_account;
 
-        parameters.mint = mint_key;
+        parameters.mint = ctx.accounts.token_mint.key();
 
 
         Ok(())
@@ -26,10 +28,11 @@ pub struct Initialize<'info> {
     pub base_account: Account<'info, GeneralParameter>,
     #[account(mut)]
     pub authority: Signer<'info>,
+    pub token_mint: Account<'info, Mint>,
     pub system_program: Program<'info, System>                                                 
 }
 
 #[account]
 pub struct GeneralParameter {
-    pub mint: String // 32 bytes
+    pub mint: Pubkey // 32 bytes
 }

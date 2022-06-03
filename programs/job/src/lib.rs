@@ -3,6 +3,7 @@ use general::program::General;
 use general::{self, GeneralParameter};
 
 
+
 declare_id!("69dteSt8rK7HLvku1kqXhw4UsmanCGa8sDcqxgeeYUS8");
 
 const JOB_FACTORY_SEED: &'static [u8] = b"jobfactory";
@@ -26,9 +27,9 @@ pub mod job {
     pub fn check_data(ctx: Context<CheckData>,job_ad_id: String, base_bump: u8, general_bump: u8 ) -> Result<()> {
 
         let parameter = &mut ctx.accounts.general_account;
-        let x = parameter.mint.clone();
+        // let x = parameter.mint.clone();
 
-        msg!(&x);
+        // msg!(&x);
 
         Ok(())
     }

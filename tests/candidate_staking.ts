@@ -80,6 +80,45 @@ describe("candidate_staking", () => {
 
   })
 
+  it("create USDC mint and mint some tokens to stakeholders", async() => {
+
+
+    USDCMint = await spl.createMint(
+      provider.connection,
+      admin,
+      admin.publicKey,
+      null,
+      6
+    );
+
+    const mintAmount = 100000000;
+
+    const casTokenWallet = await spl.createAccount(
+      provider.connection,
+      cas,
+      USDCMint,
+      cas.publicKey
+    );
+
+    await spl.mintTo(
+      provider.connection,
+      cas,
+      USDCMint,
+      casTokenWallet,
+      admin.publicKey,
+      100000000,
+      [admin]
+    );
+
+    let _casTokenWallet = await spl.getAccount(
+      provider.connection,
+      casTokenWallet
+    );
+
+    assert.equal(mintAmount, _casTokenWallet.amount);
+
+  })
+
   const jobAdId = uuidv4();
 
   it("Initializing General Program", async() => {
@@ -88,9 +127,10 @@ describe("candidate_staking", () => {
       generalProgram.programId
     );
 
-    const tx = await generalProgram.methods.initialize("dhruv").accounts({
+    const tx = await generalProgram.methods.initialize().accounts({
       baseAccount: generalPDA,
       authority: admin.publicKey,
+      tokenMint: USDCMint,
       systemProgram: anchor.web3.SystemProgram.programId
     }).signers([admin]).rpc();
   })
@@ -180,42 +220,44 @@ describe("candidate_staking", () => {
       assert.equal(state.stakedAmount, 0);
   })
 
-  it("create USDC mint and mint some tokens to stakeholders", async() => {
 
+  it("Stakes token", async() => {
 
-    USDCMint = await spl.createMint(
-      provider.connection,
-      admin,
-      admin.publicKey,
-      null,
-      6
+    const [candidatePDA, candidateBump] = await anchor.web3.PublicKey.findProgramAddress(
+      [Buffer.from("candidate"), Buffer.from(jobAdId.substring(0, 18)), Buffer.from(jobAdId.substring(18, 36)), bob.publicKey.toBuffer(), cas.publicKey.toBuffer()],
+      candidateStakingProgram.programId
+    )
+
+    const [applicationPDA, applicationBump] = await anchor.web3.PublicKey.findProgramAddress(
+      [Buffer.from("application"), Buffer.from(jobAdId.substring(0, 18)), Buffer.from(jobAdId.substring(18, 36)), bob.publicKey.toBuffer()],
+      applicationProgram.programId
+    )
+
+    const [jobPDA, jobBump] = await anchor.web3.PublicKey.findProgramAddress(
+      [Buffer.from("jobfactory"), Buffer.from(jobAdId.substring(0, 18)), Buffer.from(jobAdId.substring(18, 36))],
+      jobProgram.programId
     );
 
-    const mintAmount = 100000000;
-
-    const casTokenWallet = await spl.createAccount(
-      provider.connection,
-      cas,
-      USDCMint,
-      cas.publicKey
+    const [generalPDA, generalBump] = await anchor.web3.PublicKey.findProgramAddress(
+      [Buffer.from("general")],
+      generalProgram.programId
     );
 
-    await spl.mintTo(
-      provider.connection,
-      cas,
-      USDCMint,
-      casTokenWallet,
-      admin.publicKey,
-      100000000,
-      [admin]
-    );
+    const stakeAmount = 1000;
+    const stakeAmountInBN = new anchor.BN(stakeAmount);
 
-    let _casTokenWallet = await spl.getAccount(
-      provider.connection,
-      casTokenWallet
-    );
-
-    assert.equal(mintAmount, _casTokenWallet.amount);
+    const tx = await candidateStakingProgram.methods.stake(jobAdId, candidateBump, generalBump, applicationBump, jobBump, stakeAmountInBN).accounts({
+      baseAccount: candidatePDA,
+      authority: cas.publicKey,
+      tokenMint: USDCMint,
+      generalAccount: generalPDA,
+      jobAccount: jobPDA,
+      applicationAccount: applicationPDA,
+      applicant: bob.publicKey,
+      generalProgram: generalProgram.programId,
+      applicationProgram: applicationProgram.programId,
+      jobProgram: jobProgram.programId
+    }).signers([cas]).rpc();
 
   })
 
