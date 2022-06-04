@@ -122,7 +122,7 @@ describe("candidate_staking", () => {
       otherProgram: generalProgram.programId
     }).rpc();
 
-    const state = await generalProgram.account.generalParameter.fetch(generalPDA);
+    const state = await generalProgram.account.generalParameters.fetch(generalPDA);
 
     console.log(state.mint)
 
@@ -180,6 +180,9 @@ describe("candidate_staking", () => {
       assert.equal(state.stakedAmount, 0);
   })
 
+  // Why are we doing this? Not sure I understand how this minting is part of the process?
+  // is it because you want to initialize some accounts with USDC so that they are later able
+  // to stake it in the contract?
   it("create USDC mint and mint some tokens to stakeholders", async() => {
 
 
