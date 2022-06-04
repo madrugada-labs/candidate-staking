@@ -16,7 +16,6 @@ pub mod job {
         job_ad_id: String,
         max_amount_per_application: u32,
     ) -> Result<()> {
-        assert_eq!(job_ad_id.len(), 36, "does not have a uuid length");
         let parameters = &mut ctx.accounts.base_account;
 
         parameters.authority = ctx.accounts.authority.key();
