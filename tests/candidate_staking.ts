@@ -271,7 +271,6 @@ describe("candidate_staking", () => {
       casTokenAccount
     );
 
-    console.log("Amount before staking: ", _casTokenWallet.amount.toString());
 
     const tx = await candidateStakingProgram.methods
       .stake(
@@ -307,9 +306,77 @@ describe("candidate_staking", () => {
       casTokenAccount
     );
 
-    console.log("Amount after staking : ", _casTokenWallet.amount.toString());
-
 
     assert.equal(_casTokenWallet.amount, initialMintAmount - stakeAmount);
   });
+
+  it("updates application status", async() => {
+    const [candidatePDA, candidateBump] =
+      await anchor.web3.PublicKey.findProgramAddress(
+        [
+          Buffer.from("candidate"),
+          Buffer.from(applicationId.substring(0, 18)),
+          Buffer.from(applicationId.substring(18, 36)),
+          cas.publicKey.toBuffer(),
+        ],
+        candidateStakingProgram.programId
+      );
+
+    const [applicationPDA, applicationBump] =
+      await anchor.web3.PublicKey.findProgramAddress(
+        [
+          Buffer.from("application"),
+          Buffer.from(applicationId.substring(0, 18)),
+          Buffer.from(applicationId.substring(18, 36)),
+        ],
+        applicationProgram.programId
+      );
+
+    const [jobPDA, jobBump] = await anchor.web3.PublicKey.findProgramAddress(
+      [
+        Buffer.from("jobfactory"),
+        Buffer.from(jobAdId.substring(0, 18)),
+        Buffer.from(jobAdId.substring(18, 36)),
+      ],
+      jobProgram.programId
+    );
+
+    const [generalPDA, generalBump] =
+      await anchor.web3.PublicKey.findProgramAddress(
+        [Buffer.from("general")],
+        generalProgram.programId
+      );
+
+    const [walletPDA, walletBump] =
+      await anchor.web3.PublicKey.findProgramAddress(
+        [Buffer.from("wallet")],
+        candidateStakingProgram.programId
+      );
+
+    // changing the application state to selected
+
+    // application state codes: 
+    // true -> selected
+    // false -> rejected
+
+    const tx = await applicationProgram.methods.updateStatus(applicationId, applicationBump, true).accounts({
+      baseAccount: applicationPDA,
+      authority: admin.publicKey
+    }).signers([admin]).rpc();
+
+    let state = await applicationProgram.account.applicationParameter.fetch(applicationPDA);
+
+    assert("selected" in state.status)
+
+    const tx1 = await applicationProgram.methods.updateStatus(applicationId, applicationBump, false).accounts({
+      baseAccount: applicationPDA,
+      authority: admin.publicKey
+    }).signers([admin]).rpc();
+
+    state = await applicationProgram.account.applicationParameter.fetch(applicationPDA);
+
+    assert("rejected" in state.status)
+
+  })
+
 });

@@ -16,6 +16,19 @@ pub mod application {
 
         Ok(())
     }
+
+    pub fn update_status(ctx: Context<UpdateStatus>, _application_id: String , _application_bump: u8, status: bool,) -> Result<()> {
+
+        if status {
+            ctx.accounts.base_account.status = JobStatus::Selected;
+        }
+        else {
+            ctx.accounts.base_account.status = JobStatus::Rejected;
+        }
+
+
+        Ok(())
+    }
 }
 
 #[derive(Accounts)]
@@ -26,6 +39,15 @@ pub struct Initialize<'info> {
     #[account(mut)]
     pub authority: Signer<'info>,
     pub system_program: Program<'info, System>    
+}
+
+#[derive(Accounts)]
+#[instruction(application_id: String, application_bump: u8)]
+pub struct UpdateStatus<'info> {
+    #[account(mut, seeds = [APPLICATION_SEED, application_id.as_bytes()[..18].as_ref(), application_id.as_bytes()[18..].as_ref()], bump = application_bump, has_one = authority)]
+    pub base_account: Account<'info, ApplicationParameter>,
+    #[account(mut)]
+    pub authority: Signer<'info>,
 }
 
 #[derive(Debug, Clone, AnchorSerialize, AnchorDeserialize)]
