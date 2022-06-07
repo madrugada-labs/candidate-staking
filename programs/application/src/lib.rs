@@ -21,7 +21,7 @@ pub mod application {
 #[derive(Accounts)]
 #[instruction(job_ad_id: String, application_id: String)]
 pub struct Initialize<'info> {
-    #[account(init, payer = authority, seeds = [APPLICATION_SEED, job_ad_id.as_bytes()[..18].as_ref(), job_ad_id.as_bytes()[18..].as_ref(), application_id.as_ref()], bump , space = 4 + 32 + 1 + 8 )]
+    #[account(init, payer = authority, seeds = [APPLICATION_SEED, application_id.as_bytes()[..18].as_ref(), application_id.as_bytes()[18..].as_ref()], bump , space = 4 + 32 + 1 + 8 )]
     pub base_account: Account<'info, ApplicationParameter>,
     #[account(mut)]
     pub authority: Signer<'info>,

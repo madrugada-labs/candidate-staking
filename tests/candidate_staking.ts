@@ -106,7 +106,7 @@ describe("candidate_staking", () => {
   });
 
   const jobAdId = uuidv4();
-  const applicationId = "4";
+  const applicationId = uuidv4();
 
   it("Initializing General Program", async () => {
     const [generalPDA, generalBump] =
@@ -164,9 +164,8 @@ describe("candidate_staking", () => {
       await anchor.web3.PublicKey.findProgramAddress(
         [
           Buffer.from("application"),
-          Buffer.from(jobAdId.substring(0, 18)),
-          Buffer.from(jobAdId.substring(18, 36)),
-          Buffer.from(applicationId),
+          Buffer.from(applicationId.substring(0, 18)),
+          Buffer.from(applicationId.substring(18, 36)),
         ],
         applicationProgram.programId
       );
@@ -195,9 +194,8 @@ describe("candidate_staking", () => {
       await anchor.web3.PublicKey.findProgramAddress(
         [
           Buffer.from("candidate"),
-          Buffer.from(jobAdId.substring(0, 18)),
-          Buffer.from(jobAdId.substring(18, 36)),
-          Buffer.from(applicationId),
+          Buffer.from(applicationId.substring(0, 18)),
+          Buffer.from(applicationId.substring(18, 36)),
           cas.publicKey.toBuffer(),
         ],
         candidateStakingProgram.programId
@@ -227,9 +225,8 @@ describe("candidate_staking", () => {
       await anchor.web3.PublicKey.findProgramAddress(
         [
           Buffer.from("candidate"),
-          Buffer.from(jobAdId.substring(0, 18)),
-          Buffer.from(jobAdId.substring(18, 36)),
-          Buffer.from(applicationId),
+          Buffer.from(applicationId.substring(0, 18)),
+          Buffer.from(applicationId.substring(18, 36)),
           cas.publicKey.toBuffer(),
         ],
         candidateStakingProgram.programId
@@ -239,9 +236,8 @@ describe("candidate_staking", () => {
       await anchor.web3.PublicKey.findProgramAddress(
         [
           Buffer.from("application"),
-          Buffer.from(jobAdId.substring(0, 18)),
-          Buffer.from(jobAdId.substring(18, 36)),
-          Buffer.from(applicationId),
+          Buffer.from(applicationId.substring(0, 18)),
+          Buffer.from(applicationId.substring(18, 36)),
         ],
         applicationProgram.programId
       );

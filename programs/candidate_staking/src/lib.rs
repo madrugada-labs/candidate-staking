@@ -57,9 +57,8 @@ pub mod candidate_staking {
                 let bump_vector = base_bump.to_le_bytes();
                 let inner = vec![
                     CANDIDATE_SEED,
-                    job_ad_id.as_bytes()[..18].as_ref(),
-                    job_ad_id.as_bytes()[18..].as_ref(),
-                    application_id.as_ref(),
+                    application_id.as_bytes()[..18].as_ref(),
+                    application_id.as_bytes()[18..].as_ref(),
                     authority_key.as_ref(),
                     bump_vector.as_ref(),
                 ];
@@ -98,7 +97,7 @@ pub mod candidate_staking {
 #[derive(Accounts)]
 #[instruction(job_ad_id: String, application_id: String)]
 pub struct Initialize<'info> {
-    #[account(init, payer = authority, seeds = [CANDIDATE_SEED, job_ad_id.as_bytes()[..18].as_ref(), job_ad_id.as_bytes()[18..].as_ref(), application_id.as_ref() ,authority.key().as_ref()], bump, space = 4 + 32 + 8 )]
+    #[account(init, payer = authority, seeds = [CANDIDATE_SEED, application_id.as_bytes()[..18].as_ref(), application_id.as_bytes()[18..].as_ref(), authority.key().as_ref()], bump, space = 4 + 32 + 8 )]
     pub base_account: Account<'info, CandidateParameter>,
     #[account(mut)]
     pub authority: Signer<'info>,
@@ -107,7 +106,7 @@ pub struct Initialize<'info> {
 #[derive(Accounts)]
 #[instruction(job_ad_id: String, application_id: String, base_bump: u8, general_bump: u8, application_bump: u8, job_bump: u8)]
 pub struct Stake<'info> {
-    #[account(mut, seeds = [CANDIDATE_SEED, job_ad_id.as_bytes()[..18].as_ref(), job_ad_id.as_bytes()[18..].as_ref(), application_id.as_ref() ,authority.key().as_ref()],bump = base_bump)]
+    #[account(mut, seeds = [CANDIDATE_SEED, application_id.as_bytes()[..18].as_ref(), application_id.as_bytes()[18..].as_ref() ,authority.key().as_ref()],bump = base_bump)]
     pub base_account: Account<'info, CandidateParameter>,
     #[account(mut)]
     pub authority: Signer<'info>,
@@ -118,7 +117,7 @@ pub struct Stake<'info> {
     pub general_account: Account<'info, GeneralParameter>,
     // #[account(mut, seeds = [JOB_SEED, job_ad_id.as_bytes()[..18].as_ref(), job_ad_id.as_bytes()[18..].as_ref()], bump = job_bump, seeds::program = job_program.key())]
     // pub job_account: Account<'info, JobStakingParameter>,
-    #[account(mut, seeds = [APPLICATION_SEED, job_ad_id.as_bytes()[..18].as_ref(), job_ad_id.as_bytes()[18..].as_ref(), application_id.as_ref()], bump = application_bump, seeds::program = application_program.key())]
+    #[account(mut, seeds = [APPLICATION_SEED, application_id.as_bytes()[..18].as_ref(), application_id.as_bytes()[18..].as_ref()], bump = application_bump, seeds::program = application_program.key())]
     pub application_account: Account<'info, ApplicationParameter>,
 
     pub general_program: Program<'info, General>,
