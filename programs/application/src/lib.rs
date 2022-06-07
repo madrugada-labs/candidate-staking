@@ -8,7 +8,7 @@ const APPLICATION_SEED: &'static [u8] = b"application";
 pub mod application {
     use super::*;
 
-    pub fn initialize(ctx: Context<Initialize>, job_ad_id: String) -> Result<()> {
+    pub fn initialize(ctx: Context<Initialize>, _job_ad_id: String, _application_id: String) -> Result<()> {
 
         let parameter = &mut ctx.accounts.base_account;
 
@@ -19,9 +19,9 @@ pub mod application {
 }
 
 #[derive(Accounts)]
-#[instruction(job_ad_id: String)]
+#[instruction(job_ad_id: String, application_id: String)]
 pub struct Initialize<'info> {
-    #[account(init, payer = authority, seeds = [APPLICATION_SEED, job_ad_id.as_bytes()[..18].as_ref(), job_ad_id.as_bytes()[18..].as_ref(), authority.key().as_ref()], bump , space = 4 + 32 + 1 + 8 )]
+    #[account(init, payer = authority, seeds = [APPLICATION_SEED, application_id.as_bytes()[..18].as_ref(), application_id.as_bytes()[18..].as_ref()], bump , space = 4 + 32 + 1 + 8 )]
     pub base_account: Account<'info, ApplicationParameter>,
     #[account(mut)]
     pub authority: Signer<'info>,

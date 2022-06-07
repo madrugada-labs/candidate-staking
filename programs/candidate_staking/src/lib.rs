@@ -1,8 +1,5 @@
 use anchor_lang::prelude::*;
-use anchor_spl::{
-    associated_token::AssociatedToken,
-    token::{CloseAccount, Mint, Token, TokenAccount, Transfer},
-};
+use anchor_spl::token::{Mint, Token, TokenAccount, Transfer};
 use application::program::Application;
 use application::{self, ApplicationParameter};
 use general::program::General;
@@ -22,7 +19,7 @@ const WALLET_SEED: &'static [u8] = b"wallet";
 pub mod candidate_staking {
     use super::*;
 
-    pub fn initialize(ctx: Context<Initialize>, job_ad_id: String) -> Result<()> {
+    pub fn initialize(ctx: Context<Initialize>, _job_ad_id: String, _application_id: String) -> Result<()> {
         let state = &mut ctx.accounts.base_account;
 
         state.reset(ctx.accounts.authority.key());
@@ -33,15 +30,18 @@ pub mod candidate_staking {
     pub fn stake(
         ctx: Context<Stake>,
         job_ad_id: String,
+        application_id: String,
         base_bump: u8,
-        general_bump: u8,
-        application_bump: u8,
-        job_bump: u8,
+        _general_bump: u8,
+        _application_bump: u8,
+        _job_bump: u8,
         amount: u32,
     ) -> Result<()> {
         let general_parameter = &mut ctx.accounts.general_account;
         // let job_parameter = &mut ctx.accounts.job_account; // Im getting error while importing job PDA
         let application_parameter = &mut ctx.accounts.application_account;
+
+        // msg!(&job_parameter.max_amount_per_application.to_string());
 
         if general_parameter.mint == ctx.accounts.token_mint.key() {
             msg!("Mint is matching");
@@ -52,15 +52,13 @@ pub mod candidate_staking {
                 msg!("You can transfer");
                 msg!("Transfer is initiated");
 
-                let applicant_key = ctx.accounts.applicant.key();
                 let authority_key = ctx.accounts.authority.key();
 
                 let bump_vector = base_bump.to_le_bytes();
                 let inner = vec![
                     CANDIDATE_SEED,
-                    job_ad_id.as_bytes()[..18].as_ref(),
-                    job_ad_id.as_bytes()[18..].as_ref(),
-                    applicant_key.as_ref(),
+                    application_id.as_bytes()[..18].as_ref(),
+                    application_id.as_bytes()[18..].as_ref(),
                     authority_key.as_ref(),
                     bump_vector.as_ref(),
                 ];
@@ -86,10 +84,10 @@ pub mod candidate_staking {
 
                 msg!("token is deposited");
             } else {
-                return Err(error!(ErrorCode::MaxAmountExceeded))
+                return Err(error!(ErrorCode::MaxAmountExceeded));
             }
         } else {
-            return Err(error!(ErrorCode::InvalidToken))
+            return Err(error!(ErrorCode::InvalidToken));
         }
 
         Ok(())
@@ -97,20 +95,18 @@ pub mod candidate_staking {
 }
 
 #[derive(Accounts)]
-#[instruction(job_ad_id: String)]
+#[instruction(job_ad_id: String, application_id: String)]
 pub struct Initialize<'info> {
-    #[account(init, payer = authority, seeds = [CANDIDATE_SEED, job_ad_id.as_bytes()[..18].as_ref(), job_ad_id.as_bytes()[18..].as_ref(), applicant.key().as_ref() ,authority.key().as_ref()], bump, space = 4 + 32 + 8 )]
+    #[account(init, payer = authority, seeds = [CANDIDATE_SEED, application_id.as_bytes()[..18].as_ref(), application_id.as_bytes()[18..].as_ref(), authority.key().as_ref()], bump, space = 4 + 32 + 8 )]
     pub base_account: Account<'info, CandidateParameter>,
     #[account(mut)]
     pub authority: Signer<'info>,
-    /// CHECK: Used only to derive the PDA
-    pub applicant: AccountInfo<'info>,
     pub system_program: Program<'info, System>,
 }
 #[derive(Accounts)]
-#[instruction(job_ad_id: String, base_bump: u8, general_bump: u8, application_bump: u8, job_bump: u8)]
+#[instruction(job_ad_id: String, application_id: String, base_bump: u8, general_bump: u8, application_bump: u8, job_bump: u8)]
 pub struct Stake<'info> {
-    #[account(mut, seeds = [CANDIDATE_SEED, job_ad_id.as_bytes()[..18].as_ref(), job_ad_id.as_bytes()[18..].as_ref(), applicant.key().as_ref() ,authority.key().as_ref()],bump = base_bump)]
+    #[account(mut, seeds = [CANDIDATE_SEED, application_id.as_bytes()[..18].as_ref(), application_id.as_bytes()[18..].as_ref() ,authority.key().as_ref()],bump = base_bump)]
     pub base_account: Account<'info, CandidateParameter>,
     #[account(mut)]
     pub authority: Signer<'info>,
@@ -121,11 +117,8 @@ pub struct Stake<'info> {
     pub general_account: Account<'info, GeneralParameter>,
     // #[account(mut, seeds = [JOB_SEED, job_ad_id.as_bytes()[..18].as_ref(), job_ad_id.as_bytes()[18..].as_ref()], bump = job_bump, seeds::program = job_program.key())]
     // pub job_account: Account<'info, JobStakingParameter>,
-    #[account(mut, seeds = [APPLICATION_SEED, job_ad_id.as_bytes()[..18].as_ref(), job_ad_id.as_bytes()[18..].as_ref(), applicant.key().as_ref()], bump = application_bump, seeds::program = application_program.key())]
+    #[account(mut, seeds = [APPLICATION_SEED, application_id.as_bytes()[..18].as_ref(), application_id.as_bytes()[18..].as_ref()], bump = application_bump, seeds::program = application_program.key())]
     pub application_account: Account<'info, ApplicationParameter>,
-
-    /// CHECK: Used only to derive the PDA
-    pub applicant: AccountInfo<'info>,
 
     pub general_program: Program<'info, General>,
     pub application_program: Program<'info, Application>,

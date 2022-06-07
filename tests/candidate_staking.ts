@@ -1,12 +1,12 @@
 import * as anchor from "@project-serum/anchor";
 import { Program } from "@project-serum/anchor";
 import { CandidateStaking } from "../target/types/candidate_staking";
-import {General} from '../target/types/general';
-import {Job} from '../target/types/job';
-import {Application} from '../target/types/application';
-import {v4 as uuidv4} from "uuid";
+import { General } from "../target/types/general";
+import { Job } from "../target/types/job";
+import { Application } from "../target/types/application";
+import { v4 as uuidv4 } from "uuid";
 const assert = require("assert");
-import * as spl from '@solana/spl-token'
+import * as spl from "@solana/spl-token";
 
 describe("candidate_staking", () => {
   // Configure the client to use the local cluster.
@@ -14,11 +14,13 @@ describe("candidate_staking", () => {
   anchor.setProvider(provider);
 
   const jobProgram = anchor.workspace.Job as Program<Job>;
-  const applicationProgram = anchor.workspace.Application as Program<Application>;
-  const candidateStakingProgram = anchor.workspace.CandidateStaking as Program<CandidateStaking>;
+  const applicationProgram = anchor.workspace
+    .Application as Program<Application>;
+  const candidateStakingProgram = anchor.workspace
+    .CandidateStaking as Program<CandidateStaking>;
   const generalProgram = anchor.workspace.General as Program<General>;
 
-  let alice = anchor.web3.Keypair.generate(); // HR 
+  let alice = anchor.web3.Keypair.generate(); // HR
   let bob = anchor.web3.Keypair.generate(); // Applicant
   let cas = anchor.web3.Keypair.generate(); // Stakeholder
   let dan = anchor.web3.Keypair.generate(); // Stakeholder
@@ -29,63 +31,47 @@ describe("candidate_staking", () => {
 
   let initialMintAmount = 100000000;
 
-  it("Funds all users", async() => {
+  it("Funds all users", async () => {
     await provider.connection.confirmTransaction(
-      await provider.connection.requestAirdrop(
-        alice.publicKey,
-        10000000000
-      ),
+      await provider.connection.requestAirdrop(alice.publicKey, 10000000000),
       "confirmed"
     );
     await provider.connection.confirmTransaction(
-      await provider.connection.requestAirdrop(
-        bob.publicKey,
-        10000000000
-      ),
+      await provider.connection.requestAirdrop(bob.publicKey, 10000000000),
       "confirmed"
     );
     await provider.connection.confirmTransaction(
-      await provider.connection.requestAirdrop(
-        cas.publicKey,
-        10000000000
-      ),
+      await provider.connection.requestAirdrop(cas.publicKey, 10000000000),
       "confirmed"
     );
     await provider.connection.confirmTransaction(
-      await provider.connection.requestAirdrop(
-        dan.publicKey,
-        10000000000
-      ),
+      await provider.connection.requestAirdrop(dan.publicKey, 10000000000),
       "confirmed"
     );
 
     await provider.connection.confirmTransaction(
-      await provider.connection.requestAirdrop(
-        admin.publicKey,
-        10000000000
-      ),
+      await provider.connection.requestAirdrop(admin.publicKey, 10000000000),
       "confirmed"
     );
 
-    const aliceUserBalance = await provider.connection.getBalance(alice.publicKey);
+    const aliceUserBalance = await provider.connection.getBalance(
+      alice.publicKey
+    );
     const bobUserBalance = await provider.connection.getBalance(bob.publicKey);
     const casUserBalance = await provider.connection.getBalance(cas.publicKey);
     const danUserBalance = await provider.connection.getBalance(dan.publicKey);
-    const adminUserBalance = await provider.connection.getBalance(admin.publicKey);
-
+    const adminUserBalance = await provider.connection.getBalance(
+      admin.publicKey
+    );
 
     assert.strictEqual(10000000000, aliceUserBalance);
     assert.strictEqual(10000000000, bobUserBalance);
     assert.strictEqual(10000000000, casUserBalance);
     assert.strictEqual(10000000000, danUserBalance);
     assert.strictEqual(10000000000, adminUserBalance);
+  });
 
-
-  })
-
-  it("create USDC mint and mint some tokens to stakeholders", async() => {
-
-
+  it("create USDC mint and mint some tokens to stakeholders", async () => {
     USDCMint = await spl.createMint(
       provider.connection,
       admin,
@@ -99,7 +85,7 @@ describe("candidate_staking", () => {
       cas,
       USDCMint,
       cas.publicKey
-    )
+    );
 
     await spl.mintTo(
       provider.connection,
@@ -117,136 +103,165 @@ describe("candidate_staking", () => {
     );
 
     assert.equal(initialMintAmount, _casTokenAccount.amount);
-
-  })
+  });
 
   const jobAdId = uuidv4();
+  const applicationId = uuidv4();
 
-  it("Initializing General Program", async() => {
-    const [generalPDA, generalBump] = await anchor.web3.PublicKey.findProgramAddress(
-      [Buffer.from("general")],
-      generalProgram.programId
-    );
+  it("Initializing General Program", async () => {
+    const [generalPDA, generalBump] =
+      await anchor.web3.PublicKey.findProgramAddress(
+        [Buffer.from("general")],
+        generalProgram.programId
+      );
 
-    const tx = await generalProgram.methods.initialize().accounts({
-      baseAccount: generalPDA,
-      authority: admin.publicKey,
-      tokenMint: USDCMint,
-      systemProgram: anchor.web3.SystemProgram.programId
-    }).signers([admin]).rpc();
-  })
+    const tx = await generalProgram.methods
+      .initialize()
+      .accounts({
+        baseAccount: generalPDA,
+        authority: admin.publicKey,
+        tokenMint: USDCMint,
+        systemProgram: anchor.web3.SystemProgram.programId,
+      })
+      .signers([admin])
+      .rpc();
+  });
 
   it("Initializing Job Program", async () => {
     // Add your test here.
 
     const maxAmountPerApplication = 100000;
 
-    const [jobFactoryPDA, jobFactoryBump] = await anchor.web3.PublicKey.findProgramAddress(
-      [Buffer.from("jobfactory"), Buffer.from(jobAdId.substring(0, 18)), Buffer.from(jobAdId.substring(18, 36))],
-      jobProgram.programId
-    );
+    const [jobFactoryPDA, jobFactoryBump] =
+      await anchor.web3.PublicKey.findProgramAddress(
+        [
+          Buffer.from("jobfactory"),
+          Buffer.from(jobAdId.substring(0, 18)),
+          Buffer.from(jobAdId.substring(18, 36)),
+        ],
+        jobProgram.programId
+      );
 
-    const [generalPDA, generalBump] = await anchor.web3.PublicKey.findProgramAddress(
-      [Buffer.from("general")],
-      generalProgram.programId
-    );
+    const tx = await jobProgram.methods
+      .initialize(jobAdId, maxAmountPerApplication)
+      .accounts({
+        baseAccount: jobFactoryPDA,
+        authority: admin.publicKey,
+        systemProgram: anchor.web3.SystemProgram.programId,
+      })
+      .signers([admin])
+      .rpc();
 
-    const tx = await jobProgram.methods.initialize(jobAdId, maxAmountPerApplication).accounts({
-      baseAccount: jobFactoryPDA,
-      authority: alice.publicKey,
-      systemProgram: anchor.web3.SystemProgram.programId
-    }).signers([alice]).rpc();
+    const jobFactoryState = await jobProgram.account.jobStakingParameter.fetch(jobFactoryPDA);
 
-    const tx1 = await jobProgram.methods.checkData(jobAdId, jobFactoryBump, generalBump).accounts({
-      baseAccount: jobFactoryPDA,
-      generalAccount: generalPDA,
-      otherProgram: generalProgram.programId
-    }).rpc();
-
-    const state = await generalProgram.account.generalParameter.fetch(generalPDA);
-
-
-    // console.log("Your transaction signature", tx);
-
-
-
-    // const jobFactoryState = await jobProgram.account.jobStakingParameter.fetch(jobFactoryPDA);
-
-    // assert.strictEqual(jobAdId, jobFactoryState.jobAdId);
-    // assert.strictEqual(alice.publicKey.toBase58(), jobFactoryState.authority.toBase58());
-    // assert.strictEqual(maxAmountPerApplication, jobFactoryState.maxAmountPerApplication);
-
+    assert.strictEqual(jobAdId, jobFactoryState.jobAdId);
+    assert.strictEqual(admin.publicKey.toBase58(), jobFactoryState.authority.toBase58());
+    assert.strictEqual(maxAmountPerApplication, jobFactoryState.maxAmountPerApplication);
   });
 
-  it("Initializing Application Program", async() => {
+  it("Initializing Application Program", async () => {
+    const [applicationPDA, applicationBump] =
+      await anchor.web3.PublicKey.findProgramAddress(
+        [
+          Buffer.from("application"),
+          Buffer.from(applicationId.substring(0, 18)),
+          Buffer.from(applicationId.substring(18, 36)),
+        ],
+        applicationProgram.programId
+      );
 
-    const [applicationPDA, applicationBump] = await anchor.web3.PublicKey.findProgramAddress(
-      [Buffer.from("application"), Buffer.from(jobAdId.substring(0, 18)), Buffer.from(jobAdId.substring(18, 36)), bob.publicKey.toBuffer()],
-      applicationProgram.programId
-    )
+    let tx = await applicationProgram.methods
+      .initialize(jobAdId, applicationId)
+      .accounts({
+        baseAccount: applicationPDA,
+        authority: admin.publicKey,
+        systemProgram: anchor.web3.SystemProgram.programId,
+      })
+      .signers([admin])
+      .rpc();
 
-    let tx = await applicationProgram.methods.initialize(jobAdId).accounts({
-      baseAccount: applicationPDA,
-      authority: bob.publicKey,
-      systemProgram: anchor.web3.SystemProgram.programId
-    }).signers([bob]).rpc();
+    const state = await applicationProgram.account.applicationParameter.fetch(
+      applicationPDA
+    );
 
-    const state = await applicationProgram.account.applicationParameter.fetch(applicationPDA);
+    assert.equal(state.stakeAmount, 0);
+    assert.equal(state.authority.toBase58(), admin.publicKey.toBase58());
+    assert("pending" in state.status);
+  });
 
-
-    assert.equal(state.stakeAmount, 0)
-    assert.equal(state.authority.toBase58(), bob.publicKey.toBase58())
-    assert("pending" in state.status)
-
-  })
-
-  it("intialize candidate_staking program", async() => {
-
-      const [candidatePDA, candidateBump] = await anchor.web3.PublicKey.findProgramAddress(
-        [Buffer.from("candidate"), Buffer.from(jobAdId.substring(0, 18)), Buffer.from(jobAdId.substring(18, 36)), bob.publicKey.toBuffer(), cas.publicKey.toBuffer()],
+  it("intialize candidate_staking program", async () => {
+    const [candidatePDA, candidateBump] =
+      await anchor.web3.PublicKey.findProgramAddress(
+        [
+          Buffer.from("candidate"),
+          Buffer.from(applicationId.substring(0, 18)),
+          Buffer.from(applicationId.substring(18, 36)),
+          cas.publicKey.toBuffer(),
+        ],
         candidateStakingProgram.programId
-      )
+      );
 
-      const tx = await candidateStakingProgram.methods.initialize(jobAdId).accounts({
+    const tx = await candidateStakingProgram.methods
+      .initialize(jobAdId, applicationId)
+      .accounts({
         baseAccount: candidatePDA,
         authority: cas.publicKey,
-        applicant: bob.publicKey,
-        systemProgram: anchor.web3.SystemProgram.programId
-      }).signers([cas]).rpc();
+        systemProgram: anchor.web3.SystemProgram.programId,
+      })
+      .signers([cas])
+      .rpc();
 
-      const state = await candidateStakingProgram.account.candidateParameter.fetch(candidatePDA);
+    const state =
+      await candidateStakingProgram.account.candidateParameter.fetch(
+        candidatePDA
+      );
 
-      assert.equal(state.authority.toBase58(), cas.publicKey.toBase58());
-      assert.equal(state.stakedAmount, 0);
-  })
+    assert.equal(state.authority.toBase58(), cas.publicKey.toBase58());
+    assert.equal(state.stakedAmount, 0);
+  });
 
+  it("Stakes token", async () => {
+    const [candidatePDA, candidateBump] =
+      await anchor.web3.PublicKey.findProgramAddress(
+        [
+          Buffer.from("candidate"),
+          Buffer.from(applicationId.substring(0, 18)),
+          Buffer.from(applicationId.substring(18, 36)),
+          cas.publicKey.toBuffer(),
+        ],
+        candidateStakingProgram.programId
+      );
 
-  it("Stakes token", async() => {
-
-    const [candidatePDA, candidateBump] = await anchor.web3.PublicKey.findProgramAddress(
-      [Buffer.from("candidate"), Buffer.from(jobAdId.substring(0, 18)), Buffer.from(jobAdId.substring(18, 36)), bob.publicKey.toBuffer(), cas.publicKey.toBuffer()],
-      candidateStakingProgram.programId
-    )
-
-    const [applicationPDA, applicationBump] = await anchor.web3.PublicKey.findProgramAddress(
-      [Buffer.from("application"), Buffer.from(jobAdId.substring(0, 18)), Buffer.from(jobAdId.substring(18, 36)), bob.publicKey.toBuffer()],
-      applicationProgram.programId
-    )
+    const [applicationPDA, applicationBump] =
+      await anchor.web3.PublicKey.findProgramAddress(
+        [
+          Buffer.from("application"),
+          Buffer.from(applicationId.substring(0, 18)),
+          Buffer.from(applicationId.substring(18, 36)),
+        ],
+        applicationProgram.programId
+      );
 
     const [jobPDA, jobBump] = await anchor.web3.PublicKey.findProgramAddress(
-      [Buffer.from("jobfactory"), Buffer.from(jobAdId.substring(0, 18)), Buffer.from(jobAdId.substring(18, 36))],
+      [
+        Buffer.from("jobfactory"),
+        Buffer.from(jobAdId.substring(0, 18)),
+        Buffer.from(jobAdId.substring(18, 36)),
+      ],
       jobProgram.programId
     );
 
-    const [generalPDA, generalBump] = await anchor.web3.PublicKey.findProgramAddress(
-      [Buffer.from("general")],
-      generalProgram.programId
-    );
+    const [generalPDA, generalBump] =
+      await anchor.web3.PublicKey.findProgramAddress(
+        [Buffer.from("general")],
+        generalProgram.programId
+      );
 
-    const [walletPDA, walletBump] = await anchor.web3.PublicKey.findProgramAddress(
-      [Buffer.from("wallet")],
-      candidateStakingProgram.programId
-    )
+    const [walletPDA, walletBump] =
+      await anchor.web3.PublicKey.findProgramAddress(
+        [Buffer.from("wallet")],
+        candidateStakingProgram.programId
+      );
 
     const stakeAmount = 1000;
     const stakeAmountInBN = new anchor.BN(stakeAmount);
@@ -254,33 +269,47 @@ describe("candidate_staking", () => {
     let _casTokenWallet = await spl.getAccount(
       provider.connection,
       casTokenAccount
-    );    
+    );
 
-    const tx = await candidateStakingProgram.methods.stake(jobAdId, candidateBump, generalBump, applicationBump, jobBump,stakeAmountInBN).accounts({
-      baseAccount: candidatePDA,
-      authority: cas.publicKey,
-      tokenMint: USDCMint,
-      generalAccount: generalPDA,
-      // jobAccount: jobPDA,
-      applicationAccount: applicationPDA,
-      applicant: bob.publicKey,
-      generalProgram: generalProgram.programId,
-      applicationProgram: applicationProgram.programId,
-      jobProgram: jobProgram.programId,
-      escrowWalletState: walletPDA,
-      walletToWithdrawFrom: casTokenAccount,
-      systemProgram: anchor.web3.SystemProgram.programId,
-      tokenProgram: spl.TOKEN_PROGRAM_ID,
-      rent: anchor.web3.SYSVAR_RENT_PUBKEY,
-    }).signers([cas]).rpc();
+    console.log("Amount before staking: ", _casTokenWallet.amount.toString());
+
+    const tx = await candidateStakingProgram.methods
+      .stake(
+        jobAdId,
+        applicationId,
+        candidateBump,
+        generalBump,
+        applicationBump,
+        jobBump,
+        stakeAmount
+      )
+      .accounts({
+        baseAccount: candidatePDA,
+        authority: cas.publicKey,
+        tokenMint: USDCMint,
+        generalAccount: generalPDA,
+        // jobAccount: jobPDA,
+        applicationAccount: applicationPDA,
+        generalProgram: generalProgram.programId,
+        applicationProgram: applicationProgram.programId,
+        jobProgram: jobProgram.programId,
+        escrowWalletState: walletPDA,
+        walletToWithdrawFrom: casTokenAccount,
+        systemProgram: anchor.web3.SystemProgram.programId,
+        tokenProgram: spl.TOKEN_PROGRAM_ID,
+        rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+      })
+      .signers([cas])
+      .rpc();
 
     _casTokenWallet = await spl.getAccount(
       provider.connection,
       casTokenAccount
     );
 
-    assert.equal(_casTokenWallet.amount, initialMintAmount - stakeAmount)
+    console.log("Amount after staking : ", _casTokenWallet.amount.toString());
 
-  })
 
+    assert.equal(_casTokenWallet.amount, initialMintAmount - stakeAmount);
+  });
 });
