@@ -19,7 +19,11 @@ const WALLET_SEED: &'static [u8] = b"wallet";
 pub mod candidate_staking {
     use super::*;
 
-    pub fn initialize(ctx: Context<Initialize>, _job_ad_id: String, _application_id: String) -> Result<()> {
+    pub fn initialize(
+        ctx: Context<Initialize>,
+        _job_ad_id: String,
+        _application_id: String,
+    ) -> Result<()> {
         let state = &mut ctx.accounts.base_account;
 
         state.reset(ctx.accounts.authority.key());
@@ -46,8 +50,9 @@ pub mod candidate_staking {
         if general_parameter.mint == ctx.accounts.token_mint.key() {
             msg!("Mint is matching");
 
-            let already_staked_amount = application_parameter.stake_amount;
-            let max_amount = 1000000; // This is hard coded just for now
+            let already_staked_amount = application_parameter.staked_amount;
+            let max_amount = application_parameter.max_allowed_staked;
+
             if already_staked_amount + amount < max_amount {
                 msg!("You can transfer");
                 msg!("Transfer is initiated");
