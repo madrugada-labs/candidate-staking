@@ -52,7 +52,7 @@ pub mod candidate_staking {
                 msg!("You can transfer");
                 msg!("Transfer is initiated");
 
-                ctx.accounts.base_account.staked_amount = amount;
+                ctx.accounts.base_account.staked_amount += amount;
 
                 let authority_key = ctx.accounts.authority.key();
 
