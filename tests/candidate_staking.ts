@@ -30,6 +30,7 @@ describe("candidate_staking", () => {
   let casTokenAccount: anchor.web3.PublicKey; // cas token account
 
   let initialMintAmount = 100000000;
+  const stakeAmount = 1000;
 
   it("Funds all users", async () => {
     await provider.connection.confirmTransaction(
@@ -152,11 +153,19 @@ describe("candidate_staking", () => {
       .signers([admin])
       .rpc();
 
-    const jobFactoryState = await jobProgram.account.jobStakingParameter.fetch(jobFactoryPDA);
+    const jobFactoryState = await jobProgram.account.jobStakingParameter.fetch(
+      jobFactoryPDA
+    );
 
     assert.strictEqual(jobAdId, jobFactoryState.jobAdId);
-    assert.strictEqual(admin.publicKey.toBase58(), jobFactoryState.authority.toBase58());
-    assert.strictEqual(maxAmountPerApplication, jobFactoryState.maxAmountPerApplication);
+    assert.strictEqual(
+      admin.publicKey.toBase58(),
+      jobFactoryState.authority.toBase58()
+    );
+    assert.strictEqual(
+      maxAmountPerApplication,
+      jobFactoryState.maxAmountPerApplication
+    );
   });
 
   it("Initializing Application Program", async () => {
@@ -263,14 +272,12 @@ describe("candidate_staking", () => {
         candidateStakingProgram.programId
       );
 
-    const stakeAmount = 1000;
     const stakeAmountInBN = new anchor.BN(stakeAmount);
 
     let _casTokenWallet = await spl.getAccount(
       provider.connection,
       casTokenAccount
     );
-
 
     const tx = await candidateStakingProgram.methods
       .stake(
@@ -306,11 +313,75 @@ describe("candidate_staking", () => {
       casTokenAccount
     );
 
-
     assert.equal(_casTokenWallet.amount, initialMintAmount - stakeAmount);
   });
 
-  it("updates application status", async() => {
+  it("Minting some tokens to escrow account to pay for rewards", async () => {
+    const [walletPDA, walletBump] =
+      await anchor.web3.PublicKey.findProgramAddress(
+        [Buffer.from("wallet")],
+        candidateStakingProgram.programId
+      );
+
+    await spl.mintTo(
+      provider.connection,
+      admin,
+      USDCMint,
+      walletPDA,
+      admin,
+      initialMintAmount
+    );
+  });
+
+  it("updates application status", async () => {
+    const [applicationPDA, applicationBump] =
+      await anchor.web3.PublicKey.findProgramAddress(
+        [
+          Buffer.from("application"),
+          Buffer.from(applicationId.substring(0, 18)),
+          Buffer.from(applicationId.substring(18, 36)),
+        ],
+        applicationProgram.programId
+      );
+
+    // changing the application state to selected
+
+    // application state codes:
+    // true -> selected
+    // false -> rejected
+
+    const tx = await applicationProgram.methods
+      .updateStatus(applicationId, applicationBump, true)
+      .accounts({
+        baseAccount: applicationPDA,
+        authority: admin.publicKey,
+      })
+      .signers([admin])
+      .rpc();
+
+    let state = await applicationProgram.account.applicationParameter.fetch(
+      applicationPDA
+    );
+
+    assert("selected" in state.status);
+
+    const tx1 = await applicationProgram.methods
+      .updateStatus(applicationId, applicationBump, false)
+      .accounts({
+        baseAccount: applicationPDA,
+        authority: admin.publicKey,
+      })
+      .signers([admin])
+      .rpc();
+
+    state = await applicationProgram.account.applicationParameter.fetch(
+      applicationPDA
+    );
+
+    assert("rejected" in state.status);
+  });
+
+  it("gets reward if selected or initial if not", async () => {
     const [candidatePDA, candidateBump] =
       await anchor.web3.PublicKey.findProgramAddress(
         [
@@ -332,51 +403,122 @@ describe("candidate_staking", () => {
         applicationProgram.programId
       );
 
-    const [jobPDA, jobBump] = await anchor.web3.PublicKey.findProgramAddress(
-      [
-        Buffer.from("jobfactory"),
-        Buffer.from(jobAdId.substring(0, 18)),
-        Buffer.from(jobAdId.substring(18, 36)),
-      ],
-      jobProgram.programId
-    );
-
-    const [generalPDA, generalBump] =
-      await anchor.web3.PublicKey.findProgramAddress(
-        [Buffer.from("general")],
-        generalProgram.programId
-      );
-
     const [walletPDA, walletBump] =
       await anchor.web3.PublicKey.findProgramAddress(
         [Buffer.from("wallet")],
         candidateStakingProgram.programId
       );
 
-    // changing the application state to selected
+    const reward = stakeAmount * 2;
 
-    // application state codes: 
-    // true -> selected
-    // false -> rejected
+    //changing the application state to selected
 
-    const tx = await applicationProgram.methods.updateStatus(applicationId, applicationBump, true).accounts({
-      baseAccount: applicationPDA,
-      authority: admin.publicKey
-    }).signers([admin]).rpc();
+    const tx1 = await applicationProgram.methods
+      .updateStatus(applicationId, applicationBump, true)
+      .accounts({
+        baseAccount: applicationPDA,
+        authority: admin.publicKey,
+      })
+      .signers([admin])
+      .rpc();
 
-    let state = await applicationProgram.account.applicationParameter.fetch(applicationPDA);
+    let state = await applicationProgram.account.applicationParameter.fetch(
+      applicationPDA
+    );
 
-    assert("selected" in state.status)
+    assert("selected" in state.status);
 
-    const tx1 = await applicationProgram.methods.updateStatus(applicationId, applicationBump, false).accounts({
-      baseAccount: applicationPDA,
-      authority: admin.publicKey
-    }).signers([admin]).rpc();
+    let _casTokenWallet = await spl.getAccount(
+      provider.connection,
+      casTokenAccount
+    );
 
-    state = await applicationProgram.account.applicationParameter.fetch(applicationPDA);
+    const tx = await candidateStakingProgram.methods
+      .unstake(
+        candidateBump,
+        applicationBump,
+        walletBump,
+        applicationId,
+        new anchor.BN(reward)
+      )
+      .accounts({
+        baseAccount: candidatePDA,
+        authority: cas.publicKey,
+        tokenMint: USDCMint,
+        applicationAccount: applicationPDA,
+        applicationProgram: applicationProgram.programId,
+        escrowWalletState: walletPDA,
+        walletToDepositTo: casTokenAccount,
+        systemProgram: anchor.web3.SystemProgram.programId,
+        tokenProgram: spl.TOKEN_PROGRAM_ID,
+        rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+      })
+      .signers([cas])
+      .rpc();
 
-    assert("rejected" in state.status)
+    _casTokenWallet = await spl.getAccount(
+      provider.connection,
+      casTokenAccount
+    );
 
-  })
+    assert.equal(
+      _casTokenWallet.amount,
+      initialMintAmount - stakeAmount + reward
+    );
 
+    await applicationProgram.methods
+      .updateStatus(applicationId, applicationBump, false)
+      .accounts({
+        baseAccount: applicationPDA,
+        authority: admin.publicKey,
+      })
+      .signers([admin])
+      .rpc();
+
+    state = await applicationProgram.account.applicationParameter.fetch(
+      applicationPDA
+    );
+
+    assert("rejected" in state.status);
+
+    _casTokenWallet = await spl.getAccount(
+      provider.connection,
+      casTokenAccount
+    );
+
+    await candidateStakingProgram.methods
+      .unstake(
+        candidateBump,
+        applicationBump,
+        walletBump,
+        applicationId,
+        new anchor.BN(reward)
+      )
+      .accounts({
+        baseAccount: candidatePDA,
+        authority: cas.publicKey,
+        tokenMint: USDCMint,
+        applicationAccount: applicationPDA,
+        applicationProgram: applicationProgram.programId,
+        escrowWalletState: walletPDA,
+        walletToDepositTo: casTokenAccount,
+        systemProgram: anchor.web3.SystemProgram.programId,
+        tokenProgram: spl.TOKEN_PROGRAM_ID,
+        rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+      })
+      .signers([cas])
+      .rpc();
+
+
+    _casTokenWallet = await spl.getAccount(
+      provider.connection,
+      casTokenAccount
+    );
+
+    assert.equal(
+      _casTokenWallet.amount,
+      initialMintAmount - stakeAmount + reward + stakeAmount
+    );
+
+  });
 });

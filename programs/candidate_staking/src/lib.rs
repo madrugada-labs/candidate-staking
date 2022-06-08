@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{Mint, Token, TokenAccount, Transfer};
 use application::program::Application;
-use application::{self, ApplicationParameter};
+use application::{self, ApplicationParameter, JobStatus};
 use general::program::General;
 use general::{self, GeneralParameter};
 use job::program::Job;
@@ -52,6 +52,8 @@ pub mod candidate_staking {
                 msg!("You can transfer");
                 msg!("Transfer is initiated");
 
+                ctx.accounts.base_account.staked_amount = amount;
+
                 let authority_key = ctx.accounts.authority.key();
 
                 let bump_vector = base_bump.to_le_bytes();
@@ -88,6 +90,81 @@ pub mod candidate_staking {
             }
         } else {
             return Err(error!(ErrorCode::InvalidToken));
+        }
+
+        Ok(())
+    }
+
+    pub fn unstake(ctx: Context<Unstake>, base_bump: u8, _application_bump: u8, _wallet_bump: u8, application_id: String,  reward: u64) -> Result<()> {
+
+        let application = &mut ctx.accounts.application_account;
+
+        match application.status {
+            JobStatus::Pending => {
+                msg!("It is locked, u wont get anything now");
+            }
+            JobStatus::Selected => {
+                msg!("you are selected");
+                let authority_key = ctx.accounts.authority.key();
+
+                let bump_vector = base_bump.to_le_bytes();
+                let inner = vec![
+                    CANDIDATE_SEED,
+                    application_id.as_bytes()[..18].as_ref(),
+                    application_id.as_bytes()[18..].as_ref(),
+                    authority_key.as_ref(),
+                    bump_vector.as_ref(),
+                ];
+                let outer = vec![inner.as_slice()];
+
+                // Below is the actual instruction that we are going to send to the Token program.
+                let transfer_instruction = Transfer {
+                    from: ctx.accounts.escrow_wallet_state.to_account_info(),
+                    to: ctx.accounts.wallet_to_deposit_to.to_account_info(),
+                    authority: ctx.accounts.base_account.to_account_info(),
+                };
+                let cpi_ctx = CpiContext::new_with_signer(
+                    ctx.accounts.token_program.to_account_info(),
+                    transfer_instruction,
+                    outer.as_slice(), //signer PDA
+                );
+
+                // The `?` at the end will cause the function to return early in case of an error.
+                // This pattern is common in Rust.
+                anchor_spl::token::transfer(cpi_ctx, reward)?;
+            }
+            JobStatus::Rejected => {
+                msg!("you are rejected");
+                let authority_key = ctx.accounts.authority.key();
+
+                let bump_vector = base_bump.to_le_bytes();
+                let inner = vec![
+                    CANDIDATE_SEED,
+                    application_id.as_bytes()[..18].as_ref(),
+                    application_id.as_bytes()[18..].as_ref(),
+                    authority_key.as_ref(),
+                    bump_vector.as_ref(),
+                ];
+                let outer = vec![inner.as_slice()];
+
+                // Below is the actual instruction that we are going to send to the Token program.
+                let transfer_instruction = Transfer {
+                    from: ctx.accounts.escrow_wallet_state.to_account_info(),
+                    to: ctx.accounts.wallet_to_deposit_to.to_account_info(),
+                    authority: ctx.accounts.base_account.to_account_info(),
+                };
+                let cpi_ctx = CpiContext::new_with_signer(
+                    ctx.accounts.token_program.to_account_info(),
+                    transfer_instruction,
+                    outer.as_slice(), //signer PDA
+                );
+
+                let amount_in_32 = ctx.accounts.base_account.staked_amount as u64;
+
+                // The `?` at the end will cause the function to return early in case of an error.
+                // This pattern is common in Rust.
+                anchor_spl::token::transfer(cpi_ctx, amount_in_32)?;
+            }
         }
 
         Ok(())
@@ -138,6 +215,39 @@ pub struct Stake<'info> {
         // constraint=wallet_to_withdraw_from.mint == token_mint.key()
     )]
     pub wallet_to_withdraw_from: Account<'info, TokenAccount>,
+    pub system_program: Program<'info, System>,
+    pub token_program: Program<'info, Token>,
+    pub rent: Sysvar<'info, Rent>,
+}
+
+#[derive(Accounts)]
+#[instruction(base_bump: u8, application_bump: u8, wallet_bump: u8, application_id: String)]
+pub struct Unstake<'info> {
+    #[account(mut, seeds = [CANDIDATE_SEED, application_id.as_bytes()[..18].as_ref(), application_id.as_bytes()[18..].as_ref() ,authority.key().as_ref()],bump = base_bump)]
+    pub base_account: Account<'info, CandidateParameter>,
+    #[account(mut)]
+    pub authority: Signer<'info>,
+
+    pub token_mint: Account<'info, Mint>,
+
+    #[account(mut, seeds = [APPLICATION_SEED, application_id.as_bytes()[..18].as_ref(), application_id.as_bytes()[18..].as_ref()], bump = application_bump, seeds::program = application_program.key())]
+    pub application_account: Account<'info, ApplicationParameter>,
+
+    pub application_program: Program<'info, Application>,
+    #[account(
+        mut,
+        seeds = [WALLET_SEED],
+        bump = wallet_bump,
+        token::mint=token_mint,
+        token::authority=base_account,
+    )]
+    pub escrow_wallet_state: Account<'info, TokenAccount>,
+    #[account(
+        mut,
+        // constraint=wallet_to_withdraw_from.owner == authority.key(),
+        // constraint=wallet_to_withdraw_from.mint == token_mint.key()
+    )]
+    pub wallet_to_deposit_to: Account<'info, TokenAccount>,
     pub system_program: Program<'info, System>,
     pub token_program: Program<'info, Token>,
     pub rent: Sysvar<'info, Rent>,
