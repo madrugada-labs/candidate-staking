@@ -1,4 +1,5 @@
 mod reward_calculator;
+pub use reward_calculator::RewardCalculator;
 
 use anchor_lang::prelude::*;
 
