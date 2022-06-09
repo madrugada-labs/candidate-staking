@@ -1,8 +1,5 @@
 name: Solana Action name
-on:
-  push:
-    branches: [main]
-
+on: push
 env:
   SOLANA_VERSION: v1.9.9
   ANCHOR_VERSION: 0.24.2
