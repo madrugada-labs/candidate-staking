@@ -16,7 +16,13 @@ pub struct RewardCalculator<'a> {
 }
 
 impl<'a> RewardCalculator<'a> {
-    pub fn calculate_reward(&self, k: u32) -> Result<(u32, u32, u32), ErrorCode> {
+    pub fn new(application_parameters: &'a ApplicationParameter) -> Self {
+        Self {
+            application_parameters,
+        }
+    }
+
+    pub fn calculate_reward(&self, k: u32) -> Result<u32, ErrorCode> {
         // for simplicity -> k: amount_pledged_to_stake
         let mut k = k;
         let w = self.application_parameters.staked_amount;
@@ -62,7 +68,7 @@ impl<'a> RewardCalculator<'a> {
         let a = 3;
         let b = 2;
         let c = 1;
-        Ok((k_tier_1 * a, k_tier_2 * b, k_tier_3 * c))
+        Ok(k_tier_1 * a + k_tier_2 * b + k_tier_3 * c)
     }
 }
 
@@ -92,7 +98,7 @@ mod test {
         let reward_calculator = RewardCalculator {
             application_parameters: &application_parameters,
         };
-        assert_eq!(reward_calculator.calculate_reward(10).unwrap(), (30, 0, 0));
+        assert_eq!(reward_calculator.calculate_reward(10).unwrap(), 30);
     }
 
     #[test]
@@ -101,7 +107,7 @@ mod test {
         let reward_calculator = RewardCalculator {
             application_parameters: &application_parameters,
         };
-        assert_eq!(reward_calculator.calculate_reward(10).unwrap(), (0, 20, 0));
+        assert_eq!(reward_calculator.calculate_reward(10).unwrap(), 20);
     }
 
     #[test]
@@ -110,7 +116,7 @@ mod test {
         let reward_calculator = RewardCalculator {
             application_parameters: &application_parameters,
         };
-        assert_eq!(reward_calculator.calculate_reward(10).unwrap(), (0, 0, 10));
+        assert_eq!(reward_calculator.calculate_reward(10).unwrap(), 10);
     }
 
     #[test]
@@ -119,7 +125,7 @@ mod test {
         let reward_calculator = RewardCalculator {
             application_parameters: &application_parameters,
         };
-        assert_eq!(reward_calculator.calculate_reward(40).unwrap(), (99, 14, 0));
+        assert_eq!(reward_calculator.calculate_reward(40).unwrap(), 99 + 14);
     }
 
     #[test]
@@ -128,7 +134,7 @@ mod test {
         let reward_calculator = RewardCalculator {
             application_parameters: &application_parameters,
         };
-        assert_eq!(reward_calculator.calculate_reward(40).unwrap(), (0, 32, 24));
+        assert_eq!(reward_calculator.calculate_reward(40).unwrap(), 0 + 32 + 24);
     }
 
     #[test]
@@ -139,7 +145,7 @@ mod test {
         };
         assert_eq!(
             reward_calculator.calculate_reward(100).unwrap(),
-            (99, 66, 34)
+            99 + 66 + 34
         );
     }
 

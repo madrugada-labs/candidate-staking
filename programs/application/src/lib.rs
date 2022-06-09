@@ -1,4 +1,5 @@
 mod reward_calculator;
+pub use reward_calculator::RewardCalculator;
 
 use anchor_lang::prelude::*;
 
@@ -14,10 +15,11 @@ pub mod application {
         ctx: Context<Initialize>,
         _job_ad_id: String,
         _application_id: String,
+        max_allowed_stake: u32
     ) -> Result<()> {
         let parameter = &mut ctx.accounts.base_account;
 
-        parameter.reset(ctx.accounts.authority.key());
+        parameter.reset(ctx.accounts.authority.key(), max_allowed_stake);
 
         Ok(())
     }
@@ -79,9 +81,10 @@ pub struct ApplicationParameter {
 }
 
 impl ApplicationParameter {
-    pub fn reset(&mut self, authority: Pubkey) {
+    pub fn reset(&mut self, authority: Pubkey, max_allowed_staked: u32) {
         self.authority = authority;
         self.status = JobStatus::Pending;
         self.staked_amount = 0;
+        self.max_allowed_staked = max_allowed_staked;
     }
 }
