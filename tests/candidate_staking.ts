@@ -153,6 +153,23 @@ describe("candidate_staking", () => {
       .signers([admin])
       .rpc();
 
+    // Checks if the job can be created again. Since the PDA would be the same and it is already initialized, it would throw an error
+    try {
+      const tx = await jobProgram.methods
+      .initialize(jobAdId, maxAmountPerApplication)
+      .accounts({
+        baseAccount: jobFactoryPDA,
+        authority: admin.publicKey,
+        systemProgram: anchor.web3.SystemProgram.programId,
+      })
+      .signers([admin])
+      .rpc();
+
+      assert.equal(true, false) // if this is executed, it means that the job is created again. So this should never be true
+    } catch (error) {
+      assert.equal(error.logs[4], "Program 11111111111111111111111111111111 failed: custom program error: 0x0")
+    }
+
     const jobFactoryState = await jobProgram.account.jobStakingParameter.fetch(
       jobFactoryPDA
     );
