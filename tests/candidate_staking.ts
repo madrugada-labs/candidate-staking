@@ -132,6 +132,11 @@ describe("candidate_staking", () => {
   it("Initializing Job Program", async () => {
     // Add your test here.
 
+    const [generalPDA, generalBump] =
+      await anchor.web3.PublicKey.findProgramAddress(
+        [Buffer.from("general")],
+        generalProgram.programId
+      );
 
     const [jobFactoryPDA, jobFactoryBump] =
       await anchor.web3.PublicKey.findProgramAddress(
@@ -143,11 +148,32 @@ describe("candidate_staking", () => {
         jobProgram.programId
       );
 
+    // creating job by the person who is not the authority which should throw an error
+    try {
+      const tx = await jobProgram.methods
+      .initialize(jobAdId, generalBump, maxAmountPerApplication)
+      .accounts({
+        baseAccount: jobFactoryPDA,
+        authority: alice.publicKey,
+        generalAccount: generalPDA,
+        generalProgram: generalProgram.programId,
+        systemProgram: anchor.web3.SystemProgram.programId,
+      })
+      .signers([alice])
+      .rpc();
+
+      assert.equal(true, false);
+    } catch (error) {
+      assert.equal(error.error.errorCode.code, "InvalidAuthority")
+    }
+
     const tx = await jobProgram.methods
-      .initialize(jobAdId, maxAmountPerApplication)
+      .initialize(jobAdId, generalBump, maxAmountPerApplication)
       .accounts({
         baseAccount: jobFactoryPDA,
         authority: admin.publicKey,
+        generalAccount: generalPDA,
+        generalProgram: generalProgram.programId,
         systemProgram: anchor.web3.SystemProgram.programId,
       })
       .signers([admin])
@@ -156,10 +182,12 @@ describe("candidate_staking", () => {
     // Checks if the job can be created again. Since the PDA would be the same and it is already initialized, it would throw an error
     try {
       const tx = await jobProgram.methods
-      .initialize(jobAdId, maxAmountPerApplication)
+      .initialize(jobAdId, generalBump, maxAmountPerApplication)
       .accounts({
         baseAccount: jobFactoryPDA,
         authority: admin.publicKey,
+        generalAccount: generalPDA,
+        generalProgram: generalProgram.programId,
         systemProgram: anchor.web3.SystemProgram.programId,
       })
       .signers([admin])
