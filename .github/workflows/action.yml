@@ -21,9 +21,7 @@ jobs:
         shell: bash
       - run: curl -sSfL https://release.solana.com/$SOLANA_VERSION/install | sh
         shell: bash
-      - run: export PATH="/home/runner/.local/share/solana/install/active_release/bin:$PATH"
-        shell: bash
-      - run: solana-keygen new --no-outfile
+      - run: /home/runner/.local/share/solana/install/active_release/bin/solana-keygen new --no-outfile
         shell: bash
       - run: echo "/home/runner/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
         shell: bash
