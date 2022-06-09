@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{Mint, Token, TokenAccount, Transfer};
 use application::program::Application;
-use application::{self, ApplicationParameter, JobStatus};
+use application::{self, ApplicationParameter, JobStatus, RewardCalculator};
 use general::program::General;
 use general::{self, GeneralParameter};
 use job::program::Job;
@@ -57,7 +57,11 @@ pub mod candidate_staking {
                 msg!("You can transfer");
                 msg!("Transfer is initiated");
 
+                let reward_calculator = RewardCalculator::new(application_parameter.as_ref());
+
                 ctx.accounts.base_account.staked_amount += amount;
+                ctx.accounts.base_account.reward_amount +=
+                    reward_calculator.calculate_reward(amount)?;
 
                 let authority_key = ctx.accounts.authority.key();
 
@@ -100,8 +104,13 @@ pub mod candidate_staking {
         Ok(())
     }
 
-    pub fn unstake(ctx: Context<Unstake>, base_bump: u8, _application_bump: u8, _wallet_bump: u8, application_id: String,  reward: u64) -> Result<()> {
-
+    pub fn unstake(
+        ctx: Context<Unstake>,
+        base_bump: u8,
+        _application_bump: u8,
+        _wallet_bump: u8,
+        application_id: String,
+    ) -> Result<()> {
         let application = &mut ctx.accounts.application_account;
 
         match application.status {
@@ -134,9 +143,11 @@ pub mod candidate_staking {
                     outer.as_slice(), //signer PDA
                 );
 
+                let amount_in_64 = ctx.accounts.base_account.reward_amount as u64;
+
                 // The `?` at the end will cause the function to return early in case of an error.
                 // This pattern is common in Rust.
-                anchor_spl::token::transfer(cpi_ctx, reward)?;
+                anchor_spl::token::transfer(cpi_ctx, amount_in_64)?;
             }
             JobStatus::Rejected => {
                 msg!("you are rejected");
@@ -164,11 +175,11 @@ pub mod candidate_staking {
                     outer.as_slice(), //signer PDA
                 );
 
-                let amount_in_32 = ctx.accounts.base_account.staked_amount as u64;
+                let amount_in_64 = ctx.accounts.base_account.staked_amount as u64;
 
                 // The `?` at the end will cause the function to return early in case of an error.
                 // This pattern is common in Rust.
-                anchor_spl::token::transfer(cpi_ctx, amount_in_32)?;
+                anchor_spl::token::transfer(cpi_ctx, amount_in_64)?;
             }
         }
 
@@ -179,7 +190,7 @@ pub mod candidate_staking {
 #[derive(Accounts)]
 #[instruction(job_ad_id: String, application_id: String)]
 pub struct Initialize<'info> {
-    #[account(init, payer = authority, seeds = [CANDIDATE_SEED, application_id.as_bytes()[..18].as_ref(), application_id.as_bytes()[18..].as_ref(), authority.key().as_ref()], bump, space = 4 + 32 + 8 )]
+    #[account(init, payer = authority, seeds = [CANDIDATE_SEED, application_id.as_bytes()[..18].as_ref(), application_id.as_bytes()[18..].as_ref(), authority.key().as_ref()], bump, space = 4 + 4 + 32 + 8 )]
     pub base_account: Account<'info, CandidateParameter>,
     #[account(mut)]
     pub authority: Signer<'info>,
@@ -262,6 +273,7 @@ pub struct Unstake<'info> {
 pub struct CandidateParameter {
     pub authority: Pubkey,  // 32 bytes
     pub staked_amount: u32, // 4 bytes
+    pub reward_amount: u32, // 4 bytes
 }
 
 impl CandidateParameter {

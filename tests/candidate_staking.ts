@@ -30,7 +30,8 @@ describe("candidate_staking", () => {
   let casTokenAccount: anchor.web3.PublicKey; // cas token account
 
   let initialMintAmount = 100000000;
-  const stakeAmount = 1000;
+  const stakeAmount = 4000;
+  const maxAmountPerApplication = 10000;
 
   it("Funds all users", async () => {
     await provider.connection.confirmTransaction(
@@ -131,7 +132,6 @@ describe("candidate_staking", () => {
   it("Initializing Job Program", async () => {
     // Add your test here.
 
-    const maxAmountPerApplication = 100000;
 
     const [jobFactoryPDA, jobFactoryBump] =
       await anchor.web3.PublicKey.findProgramAddress(
@@ -180,7 +180,7 @@ describe("candidate_staking", () => {
       );
 
     let tx = await applicationProgram.methods
-      .initialize(jobAdId, applicationId)
+      .initialize(jobAdId, applicationId, maxAmountPerApplication)
       .accounts({
         baseAccount: applicationPDA,
         authority: admin.publicKey,
@@ -193,7 +193,7 @@ describe("candidate_staking", () => {
       applicationPDA
     );
 
-    assert.equal(state.stakeAmount, 0);
+    assert.equal(state.stakedAmount, 0);
     assert.equal(state.authority.toBase58(), admin.publicKey.toBase58());
     assert("pending" in state.status);
   });
@@ -308,6 +308,9 @@ describe("candidate_staking", () => {
       .signers([cas])
       .rpc();
 
+    const state = await candidateStakingProgram.account.candidateParameter.fetch(candidatePDA);
+    console.log(state.rewardAmount, state.stakedAmount);
+
     _casTokenWallet = await spl.getAccount(
       provider.connection,
       casTokenAccount
@@ -409,7 +412,8 @@ describe("candidate_staking", () => {
         candidateStakingProgram.programId
       );
 
-    const reward = stakeAmount * 2;
+    const candidateState = await candidateStakingProgram.account.candidateParameter.fetch(candidatePDA);
+    const reward = candidateState.rewardAmount;
 
     //changing the application state to selected
 
@@ -439,7 +443,6 @@ describe("candidate_staking", () => {
         applicationBump,
         walletBump,
         applicationId,
-        new anchor.BN(reward)
       )
       .accounts({
         baseAccount: candidatePDA,
@@ -492,7 +495,6 @@ describe("candidate_staking", () => {
         applicationBump,
         walletBump,
         applicationId,
-        new anchor.BN(reward)
       )
       .accounts({
         baseAccount: candidatePDA,
@@ -509,6 +511,7 @@ describe("candidate_staking", () => {
       .signers([cas])
       .rpc();
 
+      
 
     _casTokenWallet = await spl.getAccount(
       provider.connection,
