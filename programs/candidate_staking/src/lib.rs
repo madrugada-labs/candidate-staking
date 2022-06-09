@@ -143,11 +143,11 @@ pub mod candidate_staking {
                     outer.as_slice(), //signer PDA
                 );
 
-                let amount_in_32 = ctx.accounts.base_account.reward_amount as u64;
+                let amount_in_64 = ctx.accounts.base_account.reward_amount as u64;
 
                 // The `?` at the end will cause the function to return early in case of an error.
                 // This pattern is common in Rust.
-                anchor_spl::token::transfer(cpi_ctx, amount_in_32)?;
+                anchor_spl::token::transfer(cpi_ctx, amount_in_64)?;
             }
             JobStatus::Rejected => {
                 msg!("you are rejected");
@@ -175,11 +175,11 @@ pub mod candidate_staking {
                     outer.as_slice(), //signer PDA
                 );
 
-                let amount_in_32 = ctx.accounts.base_account.staked_amount as u64;
+                let amount_in_64 = ctx.accounts.base_account.staked_amount as u64;
 
                 // The `?` at the end will cause the function to return early in case of an error.
                 // This pattern is common in Rust.
-                anchor_spl::token::transfer(cpi_ctx, amount_in_32)?;
+                anchor_spl::token::transfer(cpi_ctx, amount_in_64)?;
             }
         }
 
