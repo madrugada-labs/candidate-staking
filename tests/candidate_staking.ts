@@ -34,12 +34,17 @@ describe("candidate_staking", () => {
   const maxAmountPerApplication = 10000;
 
   // application state codes:
-  // 2 -> selected
-  // 1 -> selected but cannot withdraw yet
-  // 0 -> rejected
-  const selected = 2;
-  const selectedButCannotWithdraw = 1;
-  const rejected = 0;
+  // 3 -> selected
+  // 2 -> selected but cannot withdraw yet
+  // 1 -> rejected
+  // 0 -> pending
+
+  const JobStatus = {
+    Rejected: { rejected: {} },
+    SelectedButCannotWithdraw: { selectedButCannotWithdraw: {} },
+    Selected: { selected: {} },
+    Pending: { pending: {} },
+  };
 
   it("Funds all users", async () => {
     await provider.connection.confirmTransaction(
@@ -466,7 +471,7 @@ describe("candidate_staking", () => {
       );
 
     const tx = await applicationProgram.methods
-      .updateStatus(applicationId, applicationBump, selected)
+      .updateStatus(applicationId, applicationBump, JobStatus.Selected)
       .accounts({
         baseAccount: applicationPDA,
         authority: admin.publicKey,
@@ -481,7 +486,7 @@ describe("candidate_staking", () => {
     assert("selected" in state.status);
 
     const tx1 = await applicationProgram.methods
-      .updateStatus(applicationId, applicationBump, rejected)
+      .updateStatus(applicationId, applicationBump, JobStatus.Rejected)
       .accounts({
         baseAccount: applicationPDA,
         authority: admin.publicKey,
@@ -496,7 +501,7 @@ describe("candidate_staking", () => {
     assert("rejected" in state.status);
 
     const tx2 = await applicationProgram.methods
-      .updateStatus(applicationId, applicationBump, selectedButCannotWithdraw)
+      .updateStatus(applicationId, applicationBump, JobStatus.SelectedButCannotWithdraw)
       .accounts({
         baseAccount: applicationPDA,
         authority: admin.publicKey,
@@ -549,7 +554,7 @@ describe("candidate_staking", () => {
     //changing the application state to selected
 
     const tx1 = await applicationProgram.methods
-      .updateStatus(applicationId, applicationBump, selected)
+      .updateStatus(applicationId, applicationBump, JobStatus.Selected)
       .accounts({
         baseAccount: applicationPDA,
         authority: admin.publicKey,
@@ -598,7 +603,7 @@ describe("candidate_staking", () => {
     // changing application state to rejected
 
     await applicationProgram.methods
-      .updateStatus(applicationId, applicationBump, rejected)
+      .updateStatus(applicationId, applicationBump, JobStatus.Rejected)
       .accounts({
         baseAccount: applicationPDA,
         authority: admin.publicKey,
@@ -645,7 +650,7 @@ describe("candidate_staking", () => {
     );
 
     await applicationProgram.methods
-      .updateStatus(applicationId, applicationBump, selectedButCannotWithdraw)
+      .updateStatus(applicationId, applicationBump, JobStatus.SelectedButCannotWithdraw)
       .accounts({
         baseAccount: applicationPDA,
         authority: admin.publicKey,
@@ -657,7 +662,7 @@ describe("candidate_staking", () => {
       applicationPDA
     );
 
-    assert("selectedButCantWithdraw" in state.status);
+    assert(state.status, JobStatus.SelectedButCannotWithdraw);
 
     // This instruction should fail, cause in this state the user cannot withdraw the rewards and the initialAmount
     try {
