@@ -33,6 +33,14 @@ describe("candidate_staking", () => {
   const stakeAmount = 4000;
   const maxAmountPerApplication = 10000;
 
+  // application state codes:
+  // 2 -> selected
+  // 1 -> selected but cannot withdraw yet
+  // 0 -> rejected
+  const selected = 2;
+  const selectedButCannotWithdraw = 1;
+  const rejected = 0;
+
   it("Funds all users", async () => {
     await provider.connection.confirmTransaction(
       await provider.connection.requestAirdrop(alice.publicKey, 10000000000),
@@ -419,7 +427,7 @@ describe("candidate_staking", () => {
       await candidateStakingProgram.account.candidateParameter.fetch(
         candidatePDA
       );
-    console.log(state.rewardAmount, state.stakedAmount);
+    // console.log(state.rewardAmount, state.stakedAmount);
 
     _casTokenWallet = await spl.getAccount(
       provider.connection,
@@ -457,14 +465,8 @@ describe("candidate_staking", () => {
         applicationProgram.programId
       );
 
-    // changing the application state to selected
-
-    // application state codes:
-    // true -> selected
-    // false -> rejected
-
     const tx = await applicationProgram.methods
-      .updateStatus(applicationId, applicationBump, true)
+      .updateStatus(applicationId, applicationBump, selected)
       .accounts({
         baseAccount: applicationPDA,
         authority: admin.publicKey,
@@ -479,7 +481,7 @@ describe("candidate_staking", () => {
     assert("selected" in state.status);
 
     const tx1 = await applicationProgram.methods
-      .updateStatus(applicationId, applicationBump, false)
+      .updateStatus(applicationId, applicationBump, rejected)
       .accounts({
         baseAccount: applicationPDA,
         authority: admin.publicKey,
@@ -492,6 +494,22 @@ describe("candidate_staking", () => {
     );
 
     assert("rejected" in state.status);
+
+    const tx2 = await applicationProgram.methods
+      .updateStatus(applicationId, applicationBump, selectedButCannotWithdraw)
+      .accounts({
+        baseAccount: applicationPDA,
+        authority: admin.publicKey,
+      })
+      .signers([admin])
+      .rpc();
+
+    state = await applicationProgram.account.applicationParameter.fetch(
+      applicationPDA
+    );
+
+    assert("selectedButCantWithdraw" in state.status);
+
   });
 
   it("gets reward if selected or initial if not", async () => {
@@ -531,7 +549,7 @@ describe("candidate_staking", () => {
     //changing the application state to selected
 
     const tx1 = await applicationProgram.methods
-      .updateStatus(applicationId, applicationBump, true)
+      .updateStatus(applicationId, applicationBump, selected)
       .accounts({
         baseAccount: applicationPDA,
         authority: admin.publicKey,
@@ -577,8 +595,10 @@ describe("candidate_staking", () => {
       initialMintAmount - stakeAmount + reward
     );
 
+    // changing application state to rejected
+
     await applicationProgram.methods
-      .updateStatus(applicationId, applicationBump, false)
+      .updateStatus(applicationId, applicationBump, rejected)
       .accounts({
         baseAccount: applicationPDA,
         authority: admin.publicKey,
@@ -623,5 +643,61 @@ describe("candidate_staking", () => {
       _casTokenWallet.amount,
       initialMintAmount - stakeAmount + reward + stakeAmount
     );
+
+    await applicationProgram.methods
+      .updateStatus(applicationId, applicationBump, selectedButCannotWithdraw)
+      .accounts({
+        baseAccount: applicationPDA,
+        authority: admin.publicKey,
+      })
+      .signers([admin])
+      .rpc();
+
+    state = await applicationProgram.account.applicationParameter.fetch(
+      applicationPDA
+    );
+
+    assert("selectedButCantWithdraw" in state.status);
+
+    // This instruction should fail, cause in this state the user cannot withdraw the rewards and the initialAmount
+    try {
+      await candidateStakingProgram.methods
+      .unstake(candidateBump, applicationBump, walletBump, applicationId)
+      .accounts({
+        baseAccount: candidatePDA,
+        authority: cas.publicKey,
+        tokenMint: USDCMint,
+        applicationAccount: applicationPDA,
+        applicationProgram: applicationProgram.programId,
+        escrowWalletState: walletPDA,
+        walletToDepositTo: casTokenAccount,
+        systemProgram: anchor.web3.SystemProgram.programId,
+        tokenProgram: spl.TOKEN_PROGRAM_ID,
+        rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+      })
+      .signers([cas])
+      .rpc();
+
+      assert.equal(true, false);
+    } catch (error) {
+      assert.equal(error.error.errorCode.code, "SelectedButCantTransfer")
+    }
+    
+
   });
+
+  it("Rewards for users in different tiers", async() => {
+    const tier1Amount = 2000; // The complete amount is tier 1
+    const tier1AndTier2Amount = 5000; // 3333 would be in tier 1 and 1667 would be in tier 2
+    const all3TierAmount = 8000; // 3333 would be in tier 1, the next 3333 would be in tier 2 and 1333 would be in tier 3
+
+    const onlyTier2Amount = 3000; // There will already be 3333 staked so this amount lies in tier 2 only
+    const tier2AndTier3Amount = 5000; // 3333 already in tier 1, so 3333 in tier 2 and the rest 1333 in tier 3
+
+    const onlyTier3Amount = 3000 // There will be 3333 already in tier 1, 3333 in tier2 so this remaining amount would be in tier 3 entirely
+
+    //TODO: Write the test case for the above 
+
+  })
+
 });

@@ -40,12 +40,22 @@ pub mod application {
         ctx: Context<UpdateStatus>,
         _application_id: String,
         _application_bump: u8,
-        status: bool,
+        status: u8,
     ) -> Result<()> {
-        if status {
-            ctx.accounts.base_account.status = JobStatus::Selected;
-        } else {
-            ctx.accounts.base_account.status = JobStatus::Rejected;
+
+        match status {
+            0 => {
+                ctx.accounts.base_account.status = JobStatus::Rejected;
+            }
+            1 => {
+                ctx.accounts.base_account.status = JobStatus::SelectedButCantWithdraw;
+            }
+            2 => {
+                ctx.accounts.base_account.status = JobStatus::Selected;
+            }
+            _other => {
+                return Err(error!(ErrorCode::InvalidStatus));
+            }
         }
 
         Ok(())
@@ -82,6 +92,7 @@ pub struct UpdateStatus<'info> {
 
 #[derive(Debug, Clone, AnchorSerialize, AnchorDeserialize, PartialEq)]
 pub enum JobStatus {
+    SelectedButCantWithdraw,
     Selected,
     Rejected,
     Pending,
@@ -108,4 +119,6 @@ impl ApplicationParameter {
 pub enum ErrorCode {
     #[msg("You dont have the authority to create the application")]
     InvalidAuthority,
+    #[msg("Invalid status value")]
+    InvalidStatus,
 }

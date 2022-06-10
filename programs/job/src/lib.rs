@@ -12,7 +12,7 @@ const GENERAL_SEED: &'static [u8] = b"general";
 pub mod job {
     use super::*;
 
-    pub fn initialize(ctx: Context<Initialize>, job_ad_id: String, general_bump: u8, max_amount_per_application: u32) -> Result<()> {
+    pub fn initialize(ctx: Context<Initialize>, job_ad_id: String, _general_bump: u8, max_amount_per_application: u32) -> Result<()> {
 
         let general_parameters = &mut ctx.accounts.general_account;
         if general_parameters.authority != ctx.accounts.authority.key() {

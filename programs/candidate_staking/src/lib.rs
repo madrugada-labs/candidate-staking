@@ -116,6 +116,11 @@ pub mod candidate_staking {
         match application.status {
             JobStatus::Pending => {
                 msg!("It is locked, u wont get anything now");
+                return Err(error!(ErrorCode::StatusPending));
+            }
+            JobStatus::SelectedButCantWithdraw => {
+                msg!("You are selected but u need to wait before we can transfer");
+                return Err(error!(ErrorCode::SelectedButCantTransfer));
             }
             JobStatus::Selected => {
                 msg!("you are selected");
@@ -289,4 +294,8 @@ pub enum ErrorCode {
     InvalidToken,
     #[msg("The stake amount is exceeded. ")]
     MaxAmountExceeded,
+    #[msg("The application status is still under consideration")]
+    StatusPending,
+    #[msg("The staked application is selected but u would have to wait before u can withdraw")]
+    SelectedButCantTransfer,
 }
