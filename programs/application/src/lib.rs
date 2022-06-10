@@ -23,12 +23,6 @@ pub mod application {
         max_allowed_stake: u32
     ) -> Result<()> {
 
-        let general_parameters = &mut ctx.accounts.general_account;
-
-        if general_parameters.authority != ctx.accounts.authority.key() {
-            return Err(error!(ErrorCode::InvalidAuthority));
-        }
-
         let parameter = &mut ctx.accounts.base_account;
 
         parameter.reset(ctx.accounts.authority.key(), max_allowed_stake);
@@ -70,6 +64,7 @@ pub struct Initialize<'info> {
         payer = authority,
         seeds = [APPLICATION_SEED, application_id.as_bytes()[..18].as_ref(), application_id.as_bytes()[18..].as_ref()],
         bump, 
+        constraint = authority.key() == general_account.authority @ ErrorCode::InvalidAuthority,
         space = 8 + 32 + 1 + 4 + 4
     )]
     pub base_account: Account<'info, ApplicationParameter>,
