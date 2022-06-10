@@ -34,24 +34,9 @@ pub mod application {
         ctx: Context<UpdateStatus>,
         _application_id: String,
         _application_bump: u8,
-        status: u8,
+        status: JobStatus,
     ) -> Result<()> {
-
-        match status {
-            0 => {
-                ctx.accounts.base_account.status = JobStatus::Rejected;
-            }
-            1 => {
-                ctx.accounts.base_account.status = JobStatus::SelectedButCantWithdraw;
-            }
-            2 => {
-                ctx.accounts.base_account.status = JobStatus::Selected;
-            }
-            _other => {
-                return Err(error!(ErrorCode::InvalidStatus));
-            }
-        }
-
+        ctx.accounts.base_account.status = status;
         Ok(())
     }
 }
@@ -87,9 +72,9 @@ pub struct UpdateStatus<'info> {
 
 #[derive(Debug, Clone, AnchorSerialize, AnchorDeserialize, PartialEq)]
 pub enum JobStatus {
+    Rejected,
     SelectedButCantWithdraw,
     Selected,
-    Rejected,
     Pending,
 }
 
