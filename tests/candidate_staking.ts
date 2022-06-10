@@ -151,20 +151,20 @@ describe("candidate_staking", () => {
     // creating job by the person who is not the authority which should throw an error
     try {
       const tx = await jobProgram.methods
-      .initialize(jobAdId, generalBump, maxAmountPerApplication)
-      .accounts({
-        baseAccount: jobFactoryPDA,
-        authority: alice.publicKey,
-        generalAccount: generalPDA,
-        generalProgram: generalProgram.programId,
-        systemProgram: anchor.web3.SystemProgram.programId,
-      })
-      .signers([alice])
-      .rpc();
+        .initialize(jobAdId, generalBump, maxAmountPerApplication)
+        .accounts({
+          baseAccount: jobFactoryPDA,
+          authority: alice.publicKey,
+          generalAccount: generalPDA,
+          generalProgram: generalProgram.programId,
+          systemProgram: anchor.web3.SystemProgram.programId,
+        })
+        .signers([alice])
+        .rpc();
 
-      assert.equal(true, false);
+      assert.equal(true, false); // This block should eventually fail and move to catch , but if this is executed, that means job is created by a person who is not authority.
     } catch (error) {
-      assert.equal(error.error.errorCode.code, "InvalidAuthority")
+      assert.equal(error.error.errorCode.code, "InvalidAuthority");
     }
 
     const tx = await jobProgram.methods
@@ -182,20 +182,23 @@ describe("candidate_staking", () => {
     // Checks if the job can be created again. Since the PDA would be the same and it is already initialized, it would throw an error
     try {
       const tx = await jobProgram.methods
-      .initialize(jobAdId, generalBump, maxAmountPerApplication)
-      .accounts({
-        baseAccount: jobFactoryPDA,
-        authority: admin.publicKey,
-        generalAccount: generalPDA,
-        generalProgram: generalProgram.programId,
-        systemProgram: anchor.web3.SystemProgram.programId,
-      })
-      .signers([admin])
-      .rpc();
+        .initialize(jobAdId, generalBump, maxAmountPerApplication)
+        .accounts({
+          baseAccount: jobFactoryPDA,
+          authority: admin.publicKey,
+          generalAccount: generalPDA,
+          generalProgram: generalProgram.programId,
+          systemProgram: anchor.web3.SystemProgram.programId,
+        })
+        .signers([admin])
+        .rpc();
 
-      assert.equal(true, false) // if this is executed, it means that the job is created again. So this should never be true
+      assert.equal(true, false); // if this is executed, it means that the job is created again. So this should never be true
     } catch (error) {
-      assert.equal(error.logs[4], "Program 11111111111111111111111111111111 failed: custom program error: 0x0")
+      assert.equal(
+        error.logs[4],
+        "Program 11111111111111111111111111111111 failed: custom program error: 0x0"
+      );
     }
 
     const jobFactoryState = await jobProgram.account.jobStakingParameter.fetch(
@@ -214,6 +217,12 @@ describe("candidate_staking", () => {
   });
 
   it("Initializing Application Program", async () => {
+    const [generalPDA, generalBump] =
+      await anchor.web3.PublicKey.findProgramAddress(
+        [Buffer.from("general")],
+        generalProgram.programId
+      );
+
     const [applicationPDA, applicationBump] =
       await anchor.web3.PublicKey.findProgramAddress(
         [
@@ -224,15 +233,68 @@ describe("candidate_staking", () => {
         applicationProgram.programId
       );
 
+    // Checks that only the authority can initialize the program
+    try {
+      let tx = await applicationProgram.methods
+        .initialize(
+          jobAdId,
+          applicationId,
+          generalBump,
+          maxAmountPerApplication
+        )
+        .accounts({
+          baseAccount: applicationPDA,
+          authority: alice.publicKey,
+          generalAccount: generalPDA,
+          generalProgram: generalProgram.programId,
+          systemProgram: anchor.web3.SystemProgram.programId,
+        })
+        .signers([alice])
+        .rpc();
+
+      assert.equal(true, false);
+    } catch (error) {
+      assert.equal(error.error.errorCode.code, "InvalidAuthority");
+    }
+
     let tx = await applicationProgram.methods
-      .initialize(jobAdId, applicationId, maxAmountPerApplication)
+      .initialize(jobAdId, applicationId, generalBump, maxAmountPerApplication)
       .accounts({
         baseAccount: applicationPDA,
         authority: admin.publicKey,
+        generalAccount: generalPDA,
+        generalProgram: generalProgram.programId,
         systemProgram: anchor.web3.SystemProgram.programId,
       })
       .signers([admin])
       .rpc();
+
+    // checks that the same application cannot be created again
+    try {
+      let tx = await applicationProgram.methods
+        .initialize(
+          jobAdId,
+          applicationId,
+          generalBump,
+          maxAmountPerApplication
+        )
+        .accounts({
+          baseAccount: applicationPDA,
+          authority: admin.publicKey,
+          generalAccount: generalPDA,
+          generalProgram: generalProgram.programId,
+          systemProgram: anchor.web3.SystemProgram.programId,
+        })
+        .signers([admin])
+        .rpc();
+
+      assert.equal(true, false);
+    } catch (error) {
+      assert.equal(
+        error.logs[4],
+        "Program 11111111111111111111111111111111 failed: custom program error: 0x0"
+      );
+    }
 
     const state = await applicationProgram.account.applicationParameter.fetch(
       applicationPDA
@@ -353,7 +415,10 @@ describe("candidate_staking", () => {
       .signers([cas])
       .rpc();
 
-    const state = await candidateStakingProgram.account.candidateParameter.fetch(candidatePDA);
+    const state =
+      await candidateStakingProgram.account.candidateParameter.fetch(
+        candidatePDA
+      );
     console.log(state.rewardAmount, state.stakedAmount);
 
     _casTokenWallet = await spl.getAccount(
@@ -457,7 +522,10 @@ describe("candidate_staking", () => {
         candidateStakingProgram.programId
       );
 
-    const candidateState = await candidateStakingProgram.account.candidateParameter.fetch(candidatePDA);
+    const candidateState =
+      await candidateStakingProgram.account.candidateParameter.fetch(
+        candidatePDA
+      );
     const reward = candidateState.rewardAmount;
 
     //changing the application state to selected
@@ -483,12 +551,7 @@ describe("candidate_staking", () => {
     );
 
     const tx = await candidateStakingProgram.methods
-      .unstake(
-        candidateBump,
-        applicationBump,
-        walletBump,
-        applicationId,
-      )
+      .unstake(candidateBump, applicationBump, walletBump, applicationId)
       .accounts({
         baseAccount: candidatePDA,
         authority: cas.publicKey,
@@ -535,12 +598,7 @@ describe("candidate_staking", () => {
     );
 
     await candidateStakingProgram.methods
-      .unstake(
-        candidateBump,
-        applicationBump,
-        walletBump,
-        applicationId,
-      )
+      .unstake(candidateBump, applicationBump, walletBump, applicationId)
       .accounts({
         baseAccount: candidatePDA,
         authority: cas.publicKey,
@@ -556,8 +614,6 @@ describe("candidate_staking", () => {
       .signers([cas])
       .rpc();
 
-      
-
     _casTokenWallet = await spl.getAccount(
       provider.connection,
       casTokenAccount
@@ -567,6 +623,5 @@ describe("candidate_staking", () => {
       _casTokenWallet.amount,
       initialMintAmount - stakeAmount + reward + stakeAmount
     );
-
   });
 });

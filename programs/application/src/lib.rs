@@ -1,11 +1,15 @@
 mod reward_calculator;
 pub use reward_calculator::RewardCalculator;
+use general::program::General;
+use general::{self, GeneralParameter};
 
 use anchor_lang::prelude::*;
 
 declare_id!("Fxe3yzwDaKnK8e2Mj4CqrK2YvTbFaUhqmnuTyH1dJWcX");
 
 const APPLICATION_SEED: &'static [u8] = b"application";
+const GENERAL_SEED: &'static [u8] = b"general";
+
 
 #[program]
 pub mod application {
@@ -15,8 +19,16 @@ pub mod application {
         ctx: Context<Initialize>,
         _job_ad_id: String,
         _application_id: String,
+        _general_bump: u8,
         max_allowed_stake: u32
     ) -> Result<()> {
+
+        let general_parameters = &mut ctx.accounts.general_account;
+
+        if general_parameters.authority != ctx.accounts.authority.key() {
+            return Err(error!(ErrorCode::InvalidAuthority));
+        }
+
         let parameter = &mut ctx.accounts.base_account;
 
         parameter.reset(ctx.accounts.authority.key(), max_allowed_stake);
@@ -41,7 +53,7 @@ pub mod application {
 }
 
 #[derive(Accounts)]
-#[instruction(job_ad_id: String, application_id: String)]
+#[instruction(job_ad_id: String, application_id: String, general_bump: u8)]
 pub struct Initialize<'info> {
     #[account(
         init,
@@ -51,8 +63,11 @@ pub struct Initialize<'info> {
         space = 8 + 32 + 1 + 4 + 4
     )]
     pub base_account: Account<'info, ApplicationParameter>,
+    #[account(mut, seeds = [GENERAL_SEED], bump = general_bump, seeds::program = general_program.key())]
+    pub general_account: Account<'info, GeneralParameter>,
     #[account(mut)]
     pub authority: Signer<'info>,
+    pub general_program: Program<'info, General>,
     pub system_program: Program<'info, System>,
 }
 
@@ -87,4 +102,10 @@ impl ApplicationParameter {
         self.staked_amount = 0;
         self.max_allowed_staked = max_allowed_staked;
     }
+}
+
+#[error_code]
+pub enum ErrorCode {
+    #[msg("You dont have the authority to create the application")]
+    InvalidAuthority,
 }
