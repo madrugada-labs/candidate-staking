@@ -36,9 +36,7 @@ pub mod application {
         _application_bump: u8,
         status: JobStatus,
     ) -> Result<()> {
-
         ctx.accounts.base_account.status = status;
-
         Ok(())
     }
 }
@@ -74,10 +72,10 @@ pub struct UpdateStatus<'info> {
 
 #[derive(Debug, Clone, AnchorSerialize, AnchorDeserialize, PartialEq)]
 pub enum JobStatus {
-    Pending,
     Rejected,
     SelectedButCantWithdraw,
     Selected,
+    Pending,
 }
 
 #[account]

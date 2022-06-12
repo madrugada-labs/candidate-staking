@@ -33,7 +33,7 @@ pub mod candidate_staking {
 
     pub fn stake(
         ctx: Context<Stake>,
-        job_ad_id: String,
+        _job_ad_id: String,
         application_id: String,
         base_bump: u8,
         _general_bump: u8,
@@ -186,6 +186,7 @@ pub mod candidate_staking {
                 // This pattern is common in Rust.
                 anchor_spl::token::transfer(cpi_ctx, amount_in_64)?;
             }
+            // JobStatus::HEAD => todo!(),
         }
 
         Ok(())

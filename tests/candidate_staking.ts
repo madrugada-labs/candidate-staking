@@ -34,17 +34,22 @@ describe("candidate_staking", () => {
   const maxAmountPerApplication = 10000;
 
   // application state codes:
-  // 3 -> selected
-  // 2 -> selected but cannot withdraw yet
-  // 1 -> rejected
-  // 0 -> pending
+  // 2 -> selected
+  // 1 -> selected but cannot withdraw yet
+  // 0 -> rejected
 
-  const JobStatus = {
-    Rejected: { rejected: {} },
-    SelectedButCannotWithdraw: { selectedButCannotWithdraw: {} },
-    Selected: { selected: {} },
-    Pending: { pending: {} },
-  };
+  // Side rust enum used for the program's RPC API.
+  // SOURCE: https://github.com/project-serum/anchor/blob/5d8b4765f2c5a2d0c5a26c639b10719e7b6f2fd1/tests/swap/tests/swap.js#L279
+const JobStatus = {
+  Rejected: { rejected: {} },
+  SelectedButCannotWithdraw: { selectedButCannotWithdraw: {} },
+  Selected: { selected: {} },
+  Pending: { pending: {} },
+};
+
+  // const selected = [2];
+  // const selectedButCannotWithdraw = [1];
+  // const rejected = [0];
 
   it("Funds all users", async () => {
     await provider.connection.confirmTransaction(
@@ -471,7 +476,7 @@ describe("candidate_staking", () => {
       );
 
     const tx = await applicationProgram.methods
-      .updateStatus(applicationId, applicationBump, JobStatus.Selected)
+      .updateStatus(applicationId, applicationBump, { selected: {} })
       .accounts({
         baseAccount: applicationPDA,
         authority: admin.publicKey,
@@ -486,7 +491,7 @@ describe("candidate_staking", () => {
     assert("selected" in state.status);
 
     const tx1 = await applicationProgram.methods
-      .updateStatus(applicationId, applicationBump, JobStatus.Rejected)
+      .updateStatus(applicationId, applicationBump, {rejected: {}})
       .accounts({
         baseAccount: applicationPDA,
         authority: admin.publicKey,
@@ -501,7 +506,7 @@ describe("candidate_staking", () => {
     assert("rejected" in state.status);
 
     const tx2 = await applicationProgram.methods
-      .updateStatus(applicationId, applicationBump, JobStatus.SelectedButCannotWithdraw)
+      .updateStatus(applicationId, applicationBump, {selectedButCantWithdraw: {}})
       .accounts({
         baseAccount: applicationPDA,
         authority: admin.publicKey,
@@ -554,7 +559,7 @@ describe("candidate_staking", () => {
     //changing the application state to selected
 
     const tx1 = await applicationProgram.methods
-      .updateStatus(applicationId, applicationBump, JobStatus.Selected)
+      .updateStatus(applicationId, applicationBump, {selected: {}})
       .accounts({
         baseAccount: applicationPDA,
         authority: admin.publicKey,
@@ -603,7 +608,7 @@ describe("candidate_staking", () => {
     // changing application state to rejected
 
     await applicationProgram.methods
-      .updateStatus(applicationId, applicationBump, JobStatus.Rejected)
+      .updateStatus(applicationId, applicationBump, {rejected: {}})
       .accounts({
         baseAccount: applicationPDA,
         authority: admin.publicKey,
@@ -650,7 +655,7 @@ describe("candidate_staking", () => {
     );
 
     await applicationProgram.methods
-      .updateStatus(applicationId, applicationBump, JobStatus.SelectedButCannotWithdraw)
+      .updateStatus(applicationId, applicationBump, {selectedButCantWithdraw: {}})
       .accounts({
         baseAccount: applicationPDA,
         authority: admin.publicKey,
