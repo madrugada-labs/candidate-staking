@@ -21,6 +21,15 @@ pub mod general {
 
         Ok(())
     }
+
+    pub fn change_mint(ctx: Context<ChangeMint>, _general_bump: u8) -> Result<()> {
+
+        let parameters = &mut ctx.accounts.base_account;
+
+        parameters.mint = ctx.accounts.token_mint.key();
+
+        Ok(())
+    }
 }
 
 #[derive(Accounts)]
@@ -31,6 +40,16 @@ pub struct Initialize<'info> {
     pub authority: Signer<'info>,
     pub token_mint: Account<'info, Mint>,
     pub system_program: Program<'info, System>                                                 
+}
+
+#[derive(Accounts)]
+#[instruction(general_bump: u8)]
+pub struct ChangeMint<'info> {
+    #[account(mut, seeds = [GENERAL_SEED], bump = general_bump, has_one = authority)]
+    pub base_account: Account<'info, GeneralParameter>,
+    #[account(mut)]
+    pub authority: Signer<'info>,
+    pub token_mint: Account<'info, Mint>
 }
 
 #[account]

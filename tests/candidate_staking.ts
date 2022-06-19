@@ -7,11 +7,14 @@ import { Application } from "../target/types/application";
 import { v4 as uuidv4 } from "uuid";
 const assert = require("assert");
 import * as spl from "@solana/spl-token";
+import bs58 from "bs58";
 
 describe("candidate_staking", () => {
   // Configure the client to use the local cluster.
   const provider = anchor.AnchorProvider.env();
   anchor.setProvider(provider);
+
+  console.log(provider.connection.rpcEndpoint);
 
   const jobProgram = anchor.workspace.Job as Program<Job>;
   const applicationProgram = anchor.workspace
@@ -20,18 +23,164 @@ describe("candidate_staking", () => {
     .CandidateStaking as Program<CandidateStaking>;
   const generalProgram = anchor.workspace.General as Program<General>;
 
-  let alice = anchor.web3.Keypair.generate(); // HR
-  let bob = anchor.web3.Keypair.generate(); // Applicant
-  let cas = anchor.web3.Keypair.generate(); // Stakeholder
-  let dan = anchor.web3.Keypair.generate(); // Stakeholder
-  const admin = anchor.web3.Keypair.generate(); // Admin
+  let alice: anchor.web3.Keypair;
+  let bob: anchor.web3.Keypair;
+  let cas: anchor.web3.Keypair;
+  let dan: anchor.web3.Keypair;
+  let admin: anchor.web3.Keypair;
 
   let USDCMint: anchor.web3.PublicKey; // token which would be staked
-  let casTokenAccount: anchor.web3.PublicKey; // cas token account
+  let casTokenAccount: any; // cas token account
 
   let initialMintAmount = 100000000;
   const stakeAmount = 4000;
   const maxAmountPerApplication = 10000;
+
+  if (provider.connection.rpcEndpoint == "http://localhost:8899") {
+    alice = anchor.web3.Keypair.generate(); // HR
+    bob = anchor.web3.Keypair.generate(); // Applicant
+    cas = anchor.web3.Keypair.generate(); // Stakeholder
+    dan = anchor.web3.Keypair.generate(); // Stakeholder
+    admin = anchor.web3.Keypair.generate(); // Admin
+
+    it("Funds all users", async () => {
+      await provider.connection.confirmTransaction(
+        await provider.connection.requestAirdrop(alice.publicKey, 10000000000),
+        "confirmed"
+      );
+      await provider.connection.confirmTransaction(
+        await provider.connection.requestAirdrop(bob.publicKey, 10000000000),
+        "confirmed"
+      );
+      await provider.connection.confirmTransaction(
+        await provider.connection.requestAirdrop(cas.publicKey, 10000000000),
+        "confirmed"
+      );
+      await provider.connection.confirmTransaction(
+        await provider.connection.requestAirdrop(dan.publicKey, 10000000000),
+        "confirmed"
+      );
+
+      await provider.connection.confirmTransaction(
+        await provider.connection.requestAirdrop(admin.publicKey, 10000000000),
+        "confirmed"
+      );
+
+      const aliceUserBalance = await provider.connection.getBalance(
+        alice.publicKey
+      );
+      const bobUserBalance = await provider.connection.getBalance(
+        bob.publicKey
+      );
+      const casUserBalance = await provider.connection.getBalance(
+        cas.publicKey
+      );
+      const danUserBalance = await provider.connection.getBalance(
+        dan.publicKey
+      );
+      const adminUserBalance = await provider.connection.getBalance(
+        admin.publicKey
+      );
+
+      assert.strictEqual(10000000000, aliceUserBalance);
+      assert.strictEqual(10000000000, bobUserBalance);
+      assert.strictEqual(10000000000, casUserBalance);
+      assert.strictEqual(10000000000, danUserBalance);
+      assert.strictEqual(10000000000, adminUserBalance);
+    });
+
+    it("create USDC mint and mint some tokens to stakeholders", async () => {
+      USDCMint = await spl.createMint(
+        provider.connection,
+        admin,
+        admin.publicKey,
+        null,
+        6
+      );
+
+      casTokenAccount = await spl.createAccount(
+        provider.connection,
+        cas,
+        USDCMint,
+        cas.publicKey
+      );
+
+      await spl.mintTo(
+        provider.connection,
+        cas,
+        USDCMint,
+        casTokenAccount,
+        admin.publicKey,
+        initialMintAmount,
+        [admin]
+      );
+
+      let _casTokenAccount = await spl.getAccount(
+        provider.connection,
+        casTokenAccount
+      );
+
+      assert.equal(initialMintAmount, _casTokenAccount.amount);
+    });
+  } else {
+    const alicePrivate =
+      "472ZS33Lftn7wdM31QauCkmpgFKFvgBRg6Z6NGtA6JgeRi1NfeZFRNvNi3b3sh5jvrQWrgiTimr8giVs9oq4UM5g";
+    const casPrivate =
+      "4CpgQ2g3KojCEpLwUDVjzFNWoMbvUqqQodHMPjN6B71mRy7dCuwWxCW8F9zjUrxsYDJyDpu1cbiERc8bkFR41USt";
+    const adminPrivate =
+      "2HKjYz8yfQxxhRS5f17FRCx9kDp7ATF5R4esLnKA4VaUsMA5zquP5XkQmvv9J5ZUD6wAjD4iBPYXDzQDNZmQ1eki";
+
+    alice = anchor.web3.Keypair.fromSecretKey(
+      new Uint8Array(bs58.decode(alicePrivate))
+    );
+    cas = anchor.web3.Keypair.fromSecretKey(
+      new Uint8Array(bs58.decode(casPrivate))
+    );
+    admin = anchor.web3.Keypair.fromSecretKey(
+      new Uint8Array(bs58.decode(adminPrivate))
+    );
+
+    USDCMint = new anchor.web3.PublicKey(
+      "CAb5AhUMS4EbKp1rEoNJqXGy94Abha4Tg4FrHz7zZDZ3"
+    );
+
+    it("Get the associated token account and mint tokens", async () => {
+      const TempCasTokenAccount = await spl.getOrCreateAssociatedTokenAccount(
+        provider.connection,
+        cas,
+        USDCMint,
+        cas.publicKey,
+        false
+      );
+
+      casTokenAccount = TempCasTokenAccount.address;
+
+      const _casTokenAccountBefore = await spl.getAccount(
+        provider.connection,
+        casTokenAccount
+      );
+
+      await spl.mintTo(
+        provider.connection,
+        cas,
+        USDCMint,
+        casTokenAccount,
+        admin.publicKey,
+        initialMintAmount,
+        [admin]
+      );
+
+      const _casTokenAccountAfter = await spl.getAccount(
+        provider.connection,
+        casTokenAccount
+      );
+
+      assert.equal(
+        initialMintAmount,
+        _casTokenAccountAfter.amount - _casTokenAccountBefore.amount
+      );
+    });
+  }
 
   // application state codes:
   // 2 -> selected
@@ -40,90 +189,12 @@ describe("candidate_staking", () => {
 
   // Side rust enum used for the program's RPC API.
   // SOURCE: https://github.com/project-serum/anchor/blob/5d8b4765f2c5a2d0c5a26c639b10719e7b6f2fd1/tests/swap/tests/swap.js#L279
-const JobStatus = {
-  Rejected: { rejected: {} },
-  SelectedButCannotWithdraw: { selectedButCannotWithdraw: {} },
-  Selected: { selected: {} },
-  Pending: { pending: {} },
-};
-
-  // const selected = [2];
-  // const selectedButCannotWithdraw = [1];
-  // const rejected = [0];
-
-  it("Funds all users", async () => {
-    await provider.connection.confirmTransaction(
-      await provider.connection.requestAirdrop(alice.publicKey, 10000000000),
-      "confirmed"
-    );
-    await provider.connection.confirmTransaction(
-      await provider.connection.requestAirdrop(bob.publicKey, 10000000000),
-      "confirmed"
-    );
-    await provider.connection.confirmTransaction(
-      await provider.connection.requestAirdrop(cas.publicKey, 10000000000),
-      "confirmed"
-    );
-    await provider.connection.confirmTransaction(
-      await provider.connection.requestAirdrop(dan.publicKey, 10000000000),
-      "confirmed"
-    );
-
-    await provider.connection.confirmTransaction(
-      await provider.connection.requestAirdrop(admin.publicKey, 10000000000),
-      "confirmed"
-    );
-
-    const aliceUserBalance = await provider.connection.getBalance(
-      alice.publicKey
-    );
-    const bobUserBalance = await provider.connection.getBalance(bob.publicKey);
-    const casUserBalance = await provider.connection.getBalance(cas.publicKey);
-    const danUserBalance = await provider.connection.getBalance(dan.publicKey);
-    const adminUserBalance = await provider.connection.getBalance(
-      admin.publicKey
-    );
-
-    assert.strictEqual(10000000000, aliceUserBalance);
-    assert.strictEqual(10000000000, bobUserBalance);
-    assert.strictEqual(10000000000, casUserBalance);
-    assert.strictEqual(10000000000, danUserBalance);
-    assert.strictEqual(10000000000, adminUserBalance);
-  });
-
-  it("create USDC mint and mint some tokens to stakeholders", async () => {
-    USDCMint = await spl.createMint(
-      provider.connection,
-      admin,
-      admin.publicKey,
-      null,
-      6
-    );
-
-    casTokenAccount = await spl.createAccount(
-      provider.connection,
-      cas,
-      USDCMint,
-      cas.publicKey
-    );
-
-    await spl.mintTo(
-      provider.connection,
-      cas,
-      USDCMint,
-      casTokenAccount,
-      admin.publicKey,
-      initialMintAmount,
-      [admin]
-    );
-
-    let _casTokenAccount = await spl.getAccount(
-      provider.connection,
-      casTokenAccount
-    );
-
-    assert.equal(initialMintAmount, _casTokenAccount.amount);
-  });
+  const JobStatus = {
+    Rejected: { rejected: {} },
+    SelectedButCannotWithdraw: { selectedButCannotWithdraw: {} },
+    Selected: { selected: {} },
+    Pending: { pending: {} },
+  };
 
   const jobAdId = uuidv4();
   const applicationId = uuidv4();
@@ -135,16 +206,34 @@ const JobStatus = {
         generalProgram.programId
       );
 
-    const tx = await generalProgram.methods
-      .initialize()
-      .accounts({
-        baseAccount: generalPDA,
-        authority: admin.publicKey,
-        tokenMint: USDCMint,
-        systemProgram: anchor.web3.SystemProgram.programId,
-      })
-      .signers([admin])
-      .rpc();
+    try {
+      const tx = await generalProgram.methods
+        .initialize()
+        .accounts({
+          baseAccount: generalPDA,
+          authority: admin.publicKey,
+          tokenMint: USDCMint,
+          systemProgram: anchor.web3.SystemProgram.programId,
+        })
+        .signers([admin])
+        .rpc();
+    } catch (error) {
+      const tx = await generalProgram.methods
+        .changeMint(generalBump)
+        .accounts({
+          baseAccount: generalPDA,
+          authority: admin.publicKey,
+          tokenMint: USDCMint,
+        })
+        .signers([admin])
+        .rpc();
+
+      const state = await generalProgram.account.generalParameter.fetch(
+        generalPDA
+      );
+      assert.equal(state.mint.toBase58(), USDCMint.toBase58());
+      assert.equal(state.authority.toBase58(), admin.publicKey.toBase58());
+    }
   });
 
   it("Initializing Job Program", async () => {
@@ -335,15 +424,26 @@ const JobStatus = {
         candidateStakingProgram.programId
       );
 
-    const tx = await candidateStakingProgram.methods
-      .initialize(jobAdId, applicationId)
-      .accounts({
-        baseAccount: candidatePDA,
-        authority: cas.publicKey,
-        systemProgram: anchor.web3.SystemProgram.programId,
-      })
-      .signers([cas])
-      .rpc();
+    const [walletPDA, walletBump] =
+      await anchor.web3.PublicKey.findProgramAddress(
+        [Buffer.from("wallet"), cas.publicKey.toBuffer()],
+        candidateStakingProgram.programId
+      );
+
+    try {
+      const tx = await candidateStakingProgram.methods
+        .initialize(jobAdId, applicationId)
+        .accounts({
+          baseAccount: candidatePDA,
+          tokenMint: USDCMint,
+          authority: cas.publicKey,
+          systemProgram: anchor.web3.SystemProgram.programId,
+          tokenProgram: spl.TOKEN_PROGRAM_ID,
+          rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+        })
+        .signers([cas])
+        .rpc();
+    } catch (error) {}
 
     const state =
       await candidateStakingProgram.account.candidateParameter.fetch(
@@ -393,7 +493,7 @@ const JobStatus = {
 
     const [walletPDA, walletBump] =
       await anchor.web3.PublicKey.findProgramAddress(
-        [Buffer.from("wallet")],
+        [Buffer.from("wallet"), cas.publicKey.toBuffer()],
         candidateStakingProgram.programId
       );
 
@@ -412,6 +512,7 @@ const JobStatus = {
         generalBump,
         applicationBump,
         jobBump,
+        walletBump,
         stakeAmount
       )
       .accounts({
@@ -450,7 +551,7 @@ const JobStatus = {
   it("Minting some tokens to escrow account to pay for rewards", async () => {
     const [walletPDA, walletBump] =
       await anchor.web3.PublicKey.findProgramAddress(
-        [Buffer.from("wallet")],
+        [Buffer.from("wallet"), cas.publicKey.toBuffer()],
         candidateStakingProgram.programId
       );
 
@@ -491,7 +592,7 @@ const JobStatus = {
     assert("selected" in state.status);
 
     const tx1 = await applicationProgram.methods
-      .updateStatus(applicationId, applicationBump, {rejected: {}})
+      .updateStatus(applicationId, applicationBump, { rejected: {} })
       .accounts({
         baseAccount: applicationPDA,
         authority: admin.publicKey,
@@ -506,7 +607,9 @@ const JobStatus = {
     assert("rejected" in state.status);
 
     const tx2 = await applicationProgram.methods
-      .updateStatus(applicationId, applicationBump, {selectedButCantWithdraw: {}})
+      .updateStatus(applicationId, applicationBump, {
+        selectedButCantWithdraw: {},
+      })
       .accounts({
         baseAccount: applicationPDA,
         authority: admin.publicKey,
@@ -519,7 +622,6 @@ const JobStatus = {
     );
 
     assert("selectedButCantWithdraw" in state.status);
-
   });
 
   it("gets reward if selected or initial if not", async () => {
@@ -546,7 +648,7 @@ const JobStatus = {
 
     const [walletPDA, walletBump] =
       await anchor.web3.PublicKey.findProgramAddress(
-        [Buffer.from("wallet")],
+        [Buffer.from("wallet"), cas.publicKey.toBuffer()],
         candidateStakingProgram.programId
       );
 
@@ -559,7 +661,7 @@ const JobStatus = {
     //changing the application state to selected
 
     const tx1 = await applicationProgram.methods
-      .updateStatus(applicationId, applicationBump, {selected: {}})
+      .updateStatus(applicationId, applicationBump, { selected: {} })
       .accounts({
         baseAccount: applicationPDA,
         authority: admin.publicKey,
@@ -608,7 +710,7 @@ const JobStatus = {
     // changing application state to rejected
 
     await applicationProgram.methods
-      .updateStatus(applicationId, applicationBump, {rejected: {}})
+      .updateStatus(applicationId, applicationBump, { rejected: {} })
       .accounts({
         baseAccount: applicationPDA,
         authority: admin.publicKey,
@@ -655,7 +757,9 @@ const JobStatus = {
     );
 
     await applicationProgram.methods
-      .updateStatus(applicationId, applicationBump, {selectedButCantWithdraw: {}})
+      .updateStatus(applicationId, applicationBump, {
+        selectedButCantWithdraw: {},
+      })
       .accounts({
         baseAccount: applicationPDA,
         authority: admin.publicKey,
@@ -672,31 +776,29 @@ const JobStatus = {
     // This instruction should fail, cause in this state the user cannot withdraw the rewards and the initialAmount
     try {
       await candidateStakingProgram.methods
-      .unstake(candidateBump, applicationBump, walletBump, applicationId)
-      .accounts({
-        baseAccount: candidatePDA,
-        authority: cas.publicKey,
-        tokenMint: USDCMint,
-        applicationAccount: applicationPDA,
-        applicationProgram: applicationProgram.programId,
-        escrowWalletState: walletPDA,
-        walletToDepositTo: casTokenAccount,
-        systemProgram: anchor.web3.SystemProgram.programId,
-        tokenProgram: spl.TOKEN_PROGRAM_ID,
-        rent: anchor.web3.SYSVAR_RENT_PUBKEY,
-      })
-      .signers([cas])
-      .rpc();
+        .unstake(candidateBump, applicationBump, walletBump, applicationId)
+        .accounts({
+          baseAccount: candidatePDA,
+          authority: cas.publicKey,
+          tokenMint: USDCMint,
+          applicationAccount: applicationPDA,
+          applicationProgram: applicationProgram.programId,
+          escrowWalletState: walletPDA,
+          walletToDepositTo: casTokenAccount,
+          systemProgram: anchor.web3.SystemProgram.programId,
+          tokenProgram: spl.TOKEN_PROGRAM_ID,
+          rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+        })
+        .signers([cas])
+        .rpc();
 
       assert.equal(true, false);
     } catch (error) {
-      assert.equal(error.error.errorCode.code, "SelectedButCantTransfer")
+      assert.equal(error.error.errorCode.code, "SelectedButCantTransfer");
     }
-    
-
   });
 
-  it("Rewards for users in different tiers", async() => {
+  it("Rewards for users in different tiers", async () => {
     const tier1Amount = 2000; // The complete amount is tier 1
     const tier1AndTier2Amount = 5000; // 3333 would be in tier 1 and 1667 would be in tier 2
     const all3TierAmount = 8000; // 3333 would be in tier 1, the next 3333 would be in tier 2 and 1333 would be in tier 3
@@ -704,10 +806,8 @@ const JobStatus = {
     const onlyTier2Amount = 3000; // There will already be 3333 staked so this amount lies in tier 2 only
     const tier2AndTier3Amount = 5000; // 3333 already in tier 1, so 3333 in tier 2 and the rest 1333 in tier 3
 
-    const onlyTier3Amount = 3000 // There will be 3333 already in tier 1, 3333 in tier2 so this remaining amount would be in tier 3 entirely
+    const onlyTier3Amount = 3000; // There will be 3333 already in tier 1, 3333 in tier2 so this remaining amount would be in tier 3 entirely
 
-    //TODO: Write the test case for the above 
-
-  })
-
+    //TODO: Write the test case for the above
+  });
 });

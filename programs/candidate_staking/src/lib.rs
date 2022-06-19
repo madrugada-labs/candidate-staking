@@ -39,6 +39,7 @@ pub mod candidate_staking {
         _general_bump: u8,
         _application_bump: u8,
         _job_bump: u8,
+        _wallet_bump: u8,
         amount: u32,
     ) -> Result<()> {
         let general_parameter = &mut ctx.accounts.general_account;
@@ -198,12 +199,23 @@ pub mod candidate_staking {
 pub struct Initialize<'info> {
     #[account(init, payer = authority, seeds = [CANDIDATE_SEED, application_id.as_bytes()[..18].as_ref(), application_id.as_bytes()[18..].as_ref(), authority.key().as_ref()], bump, space = 4 + 4 + 32 + 8 )]
     pub base_account: Account<'info, CandidateParameter>,
+    // #[account(
+    //     init, payer = authority,
+    //     seeds = [WALLET_SEED, authority.key().as_ref()],
+    //     bump,
+    //     token::mint=token_mint,
+    //     token::authority=base_account,
+    // )]
+    // pub escrow_wallet_state: Account<'info, TokenAccount>,
+    pub token_mint: Account<'info, Mint>,
     #[account(mut)]
     pub authority: Signer<'info>,
     pub system_program: Program<'info, System>,
+    pub token_program: Program<'info, Token>,
+    pub rent: Sysvar<'info, Rent>,
 }
 #[derive(Accounts)]
-#[instruction(job_ad_id: String, application_id: String, base_bump: u8, general_bump: u8, application_bump: u8, job_bump: u8)]
+#[instruction(job_ad_id: String, application_id: String, base_bump: u8, general_bump: u8, application_bump: u8, job_bump: u8, wallet_bump: u8)]
 pub struct Stake<'info> {
     #[account(mut, seeds = [CANDIDATE_SEED, application_id.as_bytes()[..18].as_ref(), application_id.as_bytes()[18..].as_ref() ,authority.key().as_ref()],bump = base_bump)]
     pub base_account: Account<'info, CandidateParameter>,
@@ -225,7 +237,7 @@ pub struct Stake<'info> {
 
     #[account(
         init, payer = authority,
-        seeds = [WALLET_SEED],
+        seeds = [WALLET_SEED, authority.key().as_ref()],
         bump,
         token::mint=token_mint,
         token::authority=base_account,
@@ -258,7 +270,7 @@ pub struct Unstake<'info> {
     pub application_program: Program<'info, Application>,
     #[account(
         mut,
-        seeds = [WALLET_SEED],
+        seeds = [WALLET_SEED, authority.key().as_ref()],
         bump = wallet_bump,
         token::mint=token_mint,
         token::authority=base_account,
