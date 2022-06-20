@@ -133,9 +133,7 @@ describe("candidate_staking", () => {
     alice = anchor.web3.Keypair.fromSecretKey(
       new Uint8Array(bs58.decode(alicePrivate))
     );
-    cas = anchor.web3.Keypair.fromSecretKey(
-      new Uint8Array(bs58.decode(casPrivate))
-    );
+    cas  = anchor.web3.Keypair.generate();
     admin = anchor.web3.Keypair.fromSecretKey(
       new Uint8Array(bs58.decode(adminPrivate))
     );
@@ -145,6 +143,12 @@ describe("candidate_staking", () => {
     );
 
     it("Get the associated token account and mint tokens", async () => {
+
+      await provider.connection.confirmTransaction(
+        await provider.connection.requestAirdrop(cas.publicKey, 100000000),
+        "confirmed"
+      );
+
       const TempCasTokenAccount = await spl.getOrCreateAssociatedTokenAccount(
         provider.connection,
         cas,
@@ -435,6 +439,7 @@ describe("candidate_staking", () => {
         .initialize(jobAdId, applicationId)
         .accounts({
           baseAccount: candidatePDA,
+          escrowWalletState: walletPDA,
           tokenMint: USDCMint,
           authority: cas.publicKey,
           systemProgram: anchor.web3.SystemProgram.programId,
@@ -443,7 +448,9 @@ describe("candidate_staking", () => {
         })
         .signers([cas])
         .rpc();
-    } catch (error) {}
+    } catch (error) {
+      console.log(error)
+    }
 
     const state =
       await candidateStakingProgram.account.candidateParameter.fetch(
