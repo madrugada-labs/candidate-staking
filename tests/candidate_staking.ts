@@ -133,7 +133,7 @@ describe("candidate_staking", () => {
     alice = anchor.web3.Keypair.fromSecretKey(
       new Uint8Array(bs58.decode(alicePrivate))
     );
-    cas  = anchor.web3.Keypair.generate();
+    cas = anchor.web3.Keypair.generate();
     admin = anchor.web3.Keypair.fromSecretKey(
       new Uint8Array(bs58.decode(adminPrivate))
     );
@@ -143,7 +143,6 @@ describe("candidate_staking", () => {
     );
 
     it("Get the associated token account and mint tokens", async () => {
-
       await provider.connection.confirmTransaction(
         await provider.connection.requestAirdrop(cas.publicKey, 100000000),
         "confirmed"
@@ -430,7 +429,12 @@ describe("candidate_staking", () => {
 
     const [walletPDA, walletBump] =
       await anchor.web3.PublicKey.findProgramAddress(
-        [Buffer.from("wallet"), cas.publicKey.toBuffer()],
+        [
+          Buffer.from("wallet"),
+          Buffer.from(applicationId.substring(0, 18)),
+          Buffer.from(applicationId.substring(18, 36)),
+          cas.publicKey.toBuffer(),
+        ],
         candidateStakingProgram.programId
       );
 
@@ -449,7 +453,7 @@ describe("candidate_staking", () => {
         .signers([cas])
         .rpc();
     } catch (error) {
-      console.log(error)
+      console.log(error);
     }
 
     const state =
@@ -500,7 +504,12 @@ describe("candidate_staking", () => {
 
     const [walletPDA, walletBump] =
       await anchor.web3.PublicKey.findProgramAddress(
-        [Buffer.from("wallet"), cas.publicKey.toBuffer()],
+        [
+          Buffer.from("wallet"),
+          Buffer.from(applicationId.substring(0, 18)),
+          Buffer.from(applicationId.substring(18, 36)),
+          cas.publicKey.toBuffer(),
+        ],
         candidateStakingProgram.programId
       );
 
@@ -558,7 +567,12 @@ describe("candidate_staking", () => {
   it("Minting some tokens to escrow account to pay for rewards", async () => {
     const [walletPDA, walletBump] =
       await anchor.web3.PublicKey.findProgramAddress(
-        [Buffer.from("wallet"), cas.publicKey.toBuffer()],
+        [
+          Buffer.from("wallet"),
+          Buffer.from(applicationId.substring(0, 18)),
+          Buffer.from(applicationId.substring(18, 36)),
+          cas.publicKey.toBuffer(),
+        ],
         candidateStakingProgram.programId
       );
 
@@ -655,7 +669,12 @@ describe("candidate_staking", () => {
 
     const [walletPDA, walletBump] =
       await anchor.web3.PublicKey.findProgramAddress(
-        [Buffer.from("wallet"), cas.publicKey.toBuffer()],
+        [
+          Buffer.from("wallet"),
+          Buffer.from(applicationId.substring(0, 18)),
+          Buffer.from(applicationId.substring(18, 36)),
+          cas.publicKey.toBuffer(),
+        ],
         candidateStakingProgram.programId
       );
 

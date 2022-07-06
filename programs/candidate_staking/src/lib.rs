@@ -201,7 +201,7 @@ pub struct Initialize<'info> {
     pub base_account: Account<'info, CandidateParameter>,
     #[account(
         init, payer = authority,
-        seeds = [WALLET_SEED, authority.key().as_ref()],
+        seeds = [WALLET_SEED, application_id.as_bytes()[..18].as_ref(), application_id.as_bytes()[18..].as_ref(), authority.key().as_ref()],
         bump,
         token::mint=token_mint,
         token::authority=base_account,
@@ -237,7 +237,7 @@ pub struct Stake<'info> {
 
     #[account(
         mut,
-        seeds = [WALLET_SEED, authority.key().as_ref()],
+        seeds = [WALLET_SEED, application_id.as_bytes()[..18].as_ref(), application_id.as_bytes()[18..].as_ref(), authority.key().as_ref()],
         bump = wallet_bump,
         token::mint=token_mint,
         token::authority=base_account,
@@ -270,7 +270,7 @@ pub struct Unstake<'info> {
     pub application_program: Program<'info, Application>,
     #[account(
         mut,
-        seeds = [WALLET_SEED, authority.key().as_ref()],
+        seeds = [WALLET_SEED, application_id.as_bytes()[..18].as_ref(), application_id.as_bytes()[18..].as_ref(), authority.key().as_ref()],
         bump = wallet_bump,
         token::mint=token_mint,
         token::authority=base_account,
