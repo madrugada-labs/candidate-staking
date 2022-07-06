@@ -203,8 +203,8 @@ pub struct Initialize<'info> {
         init, payer = authority,
         seeds = [WALLET_SEED, application_id.as_bytes()[..18].as_ref(), application_id.as_bytes()[18..].as_ref(), authority.key().as_ref()],
         bump,
-        token::mint=token_mint,
-        token::authority=base_account,
+        token::mint = token_mint,
+        token::authority = base_account,
     )]
     pub escrow_wallet_state: Account<'info, TokenAccount>,
     pub token_mint: Account<'info, Mint>,
