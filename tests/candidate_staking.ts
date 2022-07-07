@@ -645,6 +645,99 @@ describe("candidate_staking", () => {
     assert("selectedButCantWithdraw" in state.status);
   });
 
+  it("Not able to stake after changing the status of application", async() => {
+
+    const [candidatePDA, candidateBump] =
+      await anchor.web3.PublicKey.findProgramAddress(
+        [
+          Buffer.from("candidate"),
+          Buffer.from(applicationId.substring(0, 18)),
+          Buffer.from(applicationId.substring(18, 36)),
+          cas.publicKey.toBuffer(),
+        ],
+        candidateStakingProgram.programId
+      );
+
+    const [applicationPDA, applicationBump] =
+      await anchor.web3.PublicKey.findProgramAddress(
+        [
+          Buffer.from("application"),
+          Buffer.from(applicationId.substring(0, 18)),
+          Buffer.from(applicationId.substring(18, 36)),
+        ],
+        applicationProgram.programId
+      );
+
+    const [jobPDA, jobBump] = await anchor.web3.PublicKey.findProgramAddress(
+      [
+        Buffer.from("jobfactory"),
+        Buffer.from(jobAdId.substring(0, 18)),
+        Buffer.from(jobAdId.substring(18, 36)),
+      ],
+      jobProgram.programId
+    );
+
+    const [generalPDA, generalBump] =
+      await anchor.web3.PublicKey.findProgramAddress(
+        [Buffer.from("general")],
+        generalProgram.programId
+      );
+
+    const [walletPDA, walletBump] =
+      await anchor.web3.PublicKey.findProgramAddress(
+        [
+          Buffer.from("wallet"),
+          Buffer.from(applicationId.substring(0, 18)),
+          Buffer.from(applicationId.substring(18, 36)),
+          cas.publicKey.toBuffer(),
+        ],
+        candidateStakingProgram.programId
+      );
+
+    const stakeAmountInBN = new anchor.BN(stakeAmount);
+
+    let _casTokenWallet = await spl.getAccount(
+      provider.connection,
+      casTokenAccount
+    );
+
+    try {
+      const tx = await candidateStakingProgram.methods
+      .stake(
+        jobAdId,
+        applicationId,
+        candidateBump,
+        generalBump,
+        applicationBump,
+        jobBump,
+        walletBump,
+        stakeAmount
+      )
+      .accounts({
+        baseAccount: candidatePDA,
+        authority: cas.publicKey,
+        tokenMint: USDCMint,
+        generalAccount: generalPDA,
+        // jobAccount: jobPDA,
+        applicationAccount: applicationPDA,
+        generalProgram: generalProgram.programId,
+        applicationProgram: applicationProgram.programId,
+        jobProgram: jobProgram.programId,
+        escrowWalletState: walletPDA,
+        walletToWithdrawFrom: casTokenAccount,
+        systemProgram: anchor.web3.SystemProgram.programId,
+        tokenProgram: spl.TOKEN_PROGRAM_ID,
+        rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+      })
+      .signers([cas])
+      .rpc();
+      
+    } catch (error) {
+      assert.equal(error.error.errorCode.code, "RequireViolated")
+    }
+
+  })
+
   it("gets reward if selected or initial if not", async () => {
     const [candidatePDA, candidateBump] =
       await anchor.web3.PublicKey.findProgramAddress(

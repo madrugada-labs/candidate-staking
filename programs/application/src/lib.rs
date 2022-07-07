@@ -2,6 +2,7 @@ mod reward_calculator;
 pub use reward_calculator::RewardCalculator;
 use general::program::General;
 use general::{self, GeneralParameter};
+use std::str::FromStr;
 
 use anchor_lang::prelude::*;
 
@@ -39,6 +40,15 @@ pub mod application {
         ctx.accounts.base_account.status = status;
         Ok(())
     }
+
+    pub fn update_stake_amount(ctx: Context<UpdateStakeAmount>, _application_id: String, _application_bump: u8, stake_amount: u32) -> Result<()> {
+        msg!("cpi call is made yippee");
+        let parameters = &mut ctx.accounts.base_account;
+        msg!("{}", parameters.staked_amount);
+        parameters.staked_amount += stake_amount; 
+        Ok(())
+    }
+
 }
 
 #[derive(Accounts)]
@@ -69,6 +79,15 @@ pub struct UpdateStatus<'info> {
     #[account(mut)]
     pub authority: Signer<'info>,
 }
+
+#[derive(Accounts)]
+#[instruction(application_id: String, application_bump: u8)]
+pub struct UpdateStakeAmount<'info> {
+    #[account(mut, seeds = [APPLICATION_SEED, application_id.as_bytes()[..18].as_ref(), application_id.as_bytes()[18..].as_ref()], bump = application_bump)]
+    pub base_account: Account<'info, ApplicationParameter>,
+}
+
+
 
 #[derive(Debug, Clone, AnchorSerialize, AnchorDeserialize, PartialEq)]
 pub enum JobStatus {

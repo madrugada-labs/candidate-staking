@@ -1,6 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{Mint, Token, TokenAccount, Transfer};
 use application::program::Application;
+use application::cpi::accounts::UpdateStakeAmount;
 use application::{self, ApplicationParameter, JobStatus, RewardCalculator};
 use general::program::General;
 use general::{self, GeneralParameter};
@@ -37,16 +38,13 @@ pub mod candidate_staking {
         application_id: String,
         base_bump: u8,
         _general_bump: u8,
-        _application_bump: u8,
+        application_bump: u8,
         _job_bump: u8,
         _wallet_bump: u8,
         amount: u32,
     ) -> Result<()> {
         let general_parameter = &mut ctx.accounts.general_account;
-        // let job_parameter = &mut ctx.accounts.job_account; // Im getting error while importing job PDA
         let application_parameter = &mut ctx.accounts.application_account;
-
-        // msg!(&job_parameter.max_amount_per_application.to_string());
 
         if general_parameter.mint == ctx.accounts.token_mint.key() {
             msg!("Mint is matching");
@@ -63,6 +61,22 @@ pub mod candidate_staking {
                 ctx.accounts.base_account.staked_amount += amount;
                 ctx.accounts.base_account.reward_amount +=
                     reward_calculator.calculate_reward(amount)?;
+
+                // making cpi call to application program to update the staked amount
+
+                let seeds = &[
+                    APPLICATION_SEED,
+                    application_id.as_bytes()[..18].as_ref(),
+                    application_id.as_bytes()[18..].as_ref(),
+                    &[application_bump],
+                ];
+                let signer = &[&seeds[..]];
+                let cpi_accounts = UpdateStakeAmount {
+                    base_account: ctx.accounts.application_account.to_account_info(),
+                };
+                let cpi_program = ctx.accounts.application_program.to_account_info();
+                let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, signer);
+                application::cpi::update_stake_amount(cpi_ctx, application_id.clone(), application_bump, amount)?;
 
                 let authority_key = ctx.accounts.authority.key();
 
@@ -186,8 +200,7 @@ pub mod candidate_staking {
                 // The `?` at the end will cause the function to return early in case of an error.
                 // This pattern is common in Rust.
                 anchor_spl::token::transfer(cpi_ctx, amount_in_64)?;
-            }
-            // JobStatus::HEAD => todo!(),
+            } // JobStatus::HEAD => todo!(),
         }
 
         Ok(())
