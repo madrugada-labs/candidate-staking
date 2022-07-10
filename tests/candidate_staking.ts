@@ -199,8 +199,16 @@ describe("candidate_staking", () => {
     Pending: { pending: {} },
   };
 
-  const jobAdId = uuidv4();
-  const applicationId = uuidv4();
+  // const jobAdId = "cd03097e-63a3-4ad7-b1ae-a9d8748d1e8b"
+  // const applicationId = "25df58b2-e5a7-46c7-9803-fdfd2a3895d4"
+
+  const jobAdId = "c0f4feb3-a7a6-4d54-97c3-a7c06562a500"
+  const applicationId = "37f9b205-998c-4583-8d58-ebb7db846755"
+
+  // const jobAdId = uuidv4();
+  // const applicationId = uuidv4();
+
+  console.log(jobAdId, applicationId);
 
   it("Initializing General Program", async () => {
     const [generalPDA, generalBump] =
