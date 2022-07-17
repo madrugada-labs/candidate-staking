@@ -1,11 +1,16 @@
 mod reward_calculator;
 pub use reward_calculator::RewardCalculator;
+use general::program::General;
+use general::{self, GeneralParameter};
+use std::str::FromStr;
 
 use anchor_lang::prelude::*;
 
 declare_id!("Fxe3yzwDaKnK8e2Mj4CqrK2YvTbFaUhqmnuTyH1dJWcX");
 
 const APPLICATION_SEED: &'static [u8] = b"application";
+const GENERAL_SEED: &'static [u8] = b"general";
+
 
 #[program]
 pub mod application {
@@ -15,8 +20,10 @@ pub mod application {
         ctx: Context<Initialize>,
         _job_ad_id: String,
         _application_id: String,
+        _general_bump: u8,
         max_allowed_stake: u32
     ) -> Result<()> {
+
         let parameter = &mut ctx.accounts.base_account;
 
         parameter.reset(ctx.accounts.authority.key(), max_allowed_stake);
@@ -28,31 +35,39 @@ pub mod application {
         ctx: Context<UpdateStatus>,
         _application_id: String,
         _application_bump: u8,
-        status: bool,
+        status: JobStatus,
     ) -> Result<()> {
-        if status {
-            ctx.accounts.base_account.status = JobStatus::Selected;
-        } else {
-            ctx.accounts.base_account.status = JobStatus::Rejected;
-        }
-
+        ctx.accounts.base_account.status = status;
         Ok(())
     }
+
+    pub fn update_stake_amount(ctx: Context<UpdateStakeAmount>, _application_id: String, _application_bump: u8, stake_amount: u32) -> Result<()> {
+        msg!("cpi call is made yippee");
+        let parameters = &mut ctx.accounts.base_account;
+        msg!("{}", parameters.staked_amount);
+        parameters.staked_amount += stake_amount; 
+        Ok(())
+    }
+
 }
 
 #[derive(Accounts)]
-#[instruction(job_ad_id: String, application_id: String)]
+#[instruction(job_ad_id: String, application_id: String, general_bump: u8)]
 pub struct Initialize<'info> {
     #[account(
         init,
         payer = authority,
         seeds = [APPLICATION_SEED, application_id.as_bytes()[..18].as_ref(), application_id.as_bytes()[18..].as_ref()],
         bump, 
+        constraint = authority.key() == general_account.authority @ ErrorCode::InvalidAuthority,
         space = 8 + 32 + 1 + 4 + 4
     )]
     pub base_account: Account<'info, ApplicationParameter>,
+    #[account(mut, seeds = [GENERAL_SEED], bump = general_bump, seeds::program = general_program.key())]
+    pub general_account: Account<'info, GeneralParameter>,
     #[account(mut)]
     pub authority: Signer<'info>,
+    pub general_program: Program<'info, General>,
     pub system_program: Program<'info, System>,
 }
 
@@ -65,10 +80,20 @@ pub struct UpdateStatus<'info> {
     pub authority: Signer<'info>,
 }
 
+#[derive(Accounts)]
+#[instruction(application_id: String, application_bump: u8)]
+pub struct UpdateStakeAmount<'info> {
+    #[account(mut, seeds = [APPLICATION_SEED, application_id.as_bytes()[..18].as_ref(), application_id.as_bytes()[18..].as_ref()], bump = application_bump)]
+    pub base_account: Account<'info, ApplicationParameter>,
+}
+
+
+
 #[derive(Debug, Clone, AnchorSerialize, AnchorDeserialize, PartialEq)]
 pub enum JobStatus {
-    Selected,
     Rejected,
+    SelectedButCantWithdraw,
+    Selected,
     Pending,
 }
 
@@ -87,4 +112,12 @@ impl ApplicationParameter {
         self.staked_amount = 0;
         self.max_allowed_staked = max_allowed_staked;
     }
+}
+
+#[error_code]
+pub enum ErrorCode {
+    #[msg("You dont have the authority to create the application")]
+    InvalidAuthority,
+    #[msg("Invalid status value")]
+    InvalidStatus,
 }

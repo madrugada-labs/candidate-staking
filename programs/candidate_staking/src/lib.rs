@@ -1,6 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{Mint, Token, TokenAccount, Transfer};
 use application::program::Application;
+use application::cpi::accounts::UpdateStakeAmount;
 use application::{self, ApplicationParameter, JobStatus, RewardCalculator};
 use general::program::General;
 use general::{self, GeneralParameter};
@@ -17,6 +18,7 @@ const WALLET_SEED: &'static [u8] = b"wallet";
 
 #[program]
 pub mod candidate_staking {
+
     use super::*;
 
     pub fn initialize(
@@ -33,19 +35,17 @@ pub mod candidate_staking {
 
     pub fn stake(
         ctx: Context<Stake>,
-        job_ad_id: String,
+        _job_ad_id: String,
         application_id: String,
         base_bump: u8,
         _general_bump: u8,
-        _application_bump: u8,
+        application_bump: u8,
         _job_bump: u8,
+        _wallet_bump: u8,
         amount: u32,
     ) -> Result<()> {
         let general_parameter = &mut ctx.accounts.general_account;
-        // let job_parameter = &mut ctx.accounts.job_account; // Im getting error while importing job PDA
         let application_parameter = &mut ctx.accounts.application_account;
-
-        // msg!(&job_parameter.max_amount_per_application.to_string());
 
         if general_parameter.mint == ctx.accounts.token_mint.key() {
             msg!("Mint is matching");
@@ -63,6 +63,16 @@ pub mod candidate_staking {
                 ctx.accounts.base_account.reward_amount +=
                     reward_calculator.calculate_reward(amount)?;
 
+                // making cpi call to application program to update the staked amount
+
+                // let application_bump_vector = application_bump.to_le_bytes();
+                // let inner = vec![
+                //     APPLICATION_SEED,
+                //     application_id.as_bytes()[..18].as_ref(),
+                //     application_id.as_bytes()[18..].as_ref(),
+                //     application_bump_vector.as_ref(),
+                // ];
+                // let outer = vec![inner.as_slice()];
                 let authority_key = ctx.accounts.authority.key();
 
                 let bump_vector = base_bump.to_le_bytes();
@@ -74,6 +84,13 @@ pub mod candidate_staking {
                     bump_vector.as_ref(),
                 ];
                 let outer = vec![inner.as_slice()];
+
+                let cpi_accounts = UpdateStakeAmount {
+                    base_account: ctx.accounts.application_account.to_account_info(),
+                };
+                let cpi_program = ctx.accounts.application_program.to_account_info();
+                let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, outer.as_slice());
+                application::cpi::update_stake_amount(cpi_ctx, application_id.clone(), application_bump, amount)?;
 
                 // Below is the actual instruction that we are going to send to the Token program.
                 let transfer_instruction = Transfer {
@@ -116,6 +133,11 @@ pub mod candidate_staking {
         match application.status {
             JobStatus::Pending => {
                 msg!("It is locked, u wont get anything now");
+                return Err(error!(ErrorCode::StatusPending));
+            }
+            JobStatus::SelectedButCantWithdraw => {
+                msg!("You are selected but u need to wait before we can transfer");
+                return Err(error!(ErrorCode::SelectedButCantTransfer));
             }
             JobStatus::Selected => {
                 msg!("you are selected");
@@ -180,7 +202,7 @@ pub mod candidate_staking {
                 // The `?` at the end will cause the function to return early in case of an error.
                 // This pattern is common in Rust.
                 anchor_spl::token::transfer(cpi_ctx, amount_in_64)?;
-            }
+            } // JobStatus::HEAD => todo!(),
         }
 
         Ok(())
@@ -192,12 +214,23 @@ pub mod candidate_staking {
 pub struct Initialize<'info> {
     #[account(init, payer = authority, seeds = [CANDIDATE_SEED, application_id.as_bytes()[..18].as_ref(), application_id.as_bytes()[18..].as_ref(), authority.key().as_ref()], bump, space = 4 + 4 + 32 + 8 )]
     pub base_account: Account<'info, CandidateParameter>,
+    #[account(
+        init, payer = authority,
+        seeds = [WALLET_SEED, application_id.as_bytes()[..18].as_ref(), application_id.as_bytes()[18..].as_ref(), authority.key().as_ref()],
+        bump,
+        token::mint = token_mint,
+        token::authority = base_account,
+    )]
+    pub escrow_wallet_state: Account<'info, TokenAccount>,
+    pub token_mint: Account<'info, Mint>,
     #[account(mut)]
     pub authority: Signer<'info>,
     pub system_program: Program<'info, System>,
+    pub token_program: Program<'info, Token>,
+    pub rent: Sysvar<'info, Rent>,
 }
 #[derive(Accounts)]
-#[instruction(job_ad_id: String, application_id: String, base_bump: u8, general_bump: u8, application_bump: u8, job_bump: u8)]
+#[instruction(job_ad_id: String, application_id: String, base_bump: u8, general_bump: u8, application_bump: u8, job_bump: u8, wallet_bump: u8)]
 pub struct Stake<'info> {
     #[account(mut, seeds = [CANDIDATE_SEED, application_id.as_bytes()[..18].as_ref(), application_id.as_bytes()[18..].as_ref() ,authority.key().as_ref()],bump = base_bump)]
     pub base_account: Account<'info, CandidateParameter>,
@@ -218,9 +251,9 @@ pub struct Stake<'info> {
     pub job_program: Program<'info, Job>,
 
     #[account(
-        init, payer = authority,
-        seeds = [WALLET_SEED],
-        bump,
+        mut,
+        seeds = [WALLET_SEED, application_id.as_bytes()[..18].as_ref(), application_id.as_bytes()[18..].as_ref(), authority.key().as_ref()],
+        bump = wallet_bump,
         token::mint=token_mint,
         token::authority=base_account,
     )]
@@ -252,7 +285,7 @@ pub struct Unstake<'info> {
     pub application_program: Program<'info, Application>,
     #[account(
         mut,
-        seeds = [WALLET_SEED],
+        seeds = [WALLET_SEED, application_id.as_bytes()[..18].as_ref(), application_id.as_bytes()[18..].as_ref(), authority.key().as_ref()],
         bump = wallet_bump,
         token::mint=token_mint,
         token::authority=base_account,
@@ -289,4 +322,8 @@ pub enum ErrorCode {
     InvalidToken,
     #[msg("The stake amount is exceeded. ")]
     MaxAmountExceeded,
+    #[msg("The application status is still under consideration")]
+    StatusPending,
+    #[msg("The staked application is selected but u would have to wait before u can withdraw")]
+    SelectedButCantTransfer,
 }
