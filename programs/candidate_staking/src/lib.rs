@@ -18,6 +18,7 @@ const WALLET_SEED: &'static [u8] = b"wallet";
 
 #[program]
 pub mod candidate_staking {
+
     use super::*;
 
     pub fn initialize(
@@ -64,20 +65,14 @@ pub mod candidate_staking {
 
                 // making cpi call to application program to update the staked amount
 
-                let seeds = &[
-                    APPLICATION_SEED,
-                    application_id.as_bytes()[..18].as_ref(),
-                    application_id.as_bytes()[18..].as_ref(),
-                    &[application_bump],
-                ];
-                let signer = &[&seeds[..]];
-                let cpi_accounts = UpdateStakeAmount {
-                    base_account: ctx.accounts.application_account.to_account_info(),
-                };
-                let cpi_program = ctx.accounts.application_program.to_account_info();
-                let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, signer);
-                application::cpi::update_stake_amount(cpi_ctx, application_id.clone(), application_bump, amount)?;
-
+                // let application_bump_vector = application_bump.to_le_bytes();
+                // let inner = vec![
+                //     APPLICATION_SEED,
+                //     application_id.as_bytes()[..18].as_ref(),
+                //     application_id.as_bytes()[18..].as_ref(),
+                //     application_bump_vector.as_ref(),
+                // ];
+                // let outer = vec![inner.as_slice()];
                 let authority_key = ctx.accounts.authority.key();
 
                 let bump_vector = base_bump.to_le_bytes();
@@ -89,6 +84,13 @@ pub mod candidate_staking {
                     bump_vector.as_ref(),
                 ];
                 let outer = vec![inner.as_slice()];
+
+                let cpi_accounts = UpdateStakeAmount {
+                    base_account: ctx.accounts.application_account.to_account_info(),
+                };
+                let cpi_program = ctx.accounts.application_program.to_account_info();
+                let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, outer.as_slice());
+                application::cpi::update_stake_amount(cpi_ctx, application_id.clone(), application_bump, amount)?;
 
                 // Below is the actual instruction that we are going to send to the Token program.
                 let transfer_instruction = Transfer {
