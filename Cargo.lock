@@ -673,7 +673,9 @@ name = "job"
 version = "0.1.0"
 dependencies = [
  "anchor-lang",
+ "anchor-spl",
  "general",
+ "spl-token",
 ]
 
 [[package]]
