@@ -19,7 +19,7 @@ default = []
 overflow-checks = true
 
 [dependencies]
-anchor-lang = "0.24.2"
+anchor-lang = {version = "0.24.2", features = ["init-if-needed"]}
 application = {path = "../application", features = ["cpi"] }
 job = {path = "../job", features = ["cpi"] }
 general = {path = "../general", features = ["cpi"] }
