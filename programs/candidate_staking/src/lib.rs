@@ -147,33 +147,6 @@ pub mod candidate_staking {
                 msg!("you are selected");
                 let authority_key = ctx.accounts.authority.key();
 
-                // let bump_vector = job_bump.to_le_bytes();
-                // let inner = vec![
-                //     JOB_SEED,
-                //     job_ad_id.as_bytes()[..18].as_ref(),
-                //     job_ad_id.as_bytes()[18..].as_ref(),
-                //     bump_vector.as_ref(),
-                // ];
-                // let outer = vec![inner.as_slice()];
-
-                // // Below is the actual instruction that we are going to send to the Token program.
-                // let transfer_instruction = Transfer {
-                //     from: ctx.accounts.escrow_wallet_state.to_account_info(),
-                //     to: ctx.accounts.wallet_to_deposit_to.to_account_info(),
-                //     authority: ctx.accounts.job_account.to_account_info(),
-                // };
-                // let cpi_ctx = CpiContext::new_with_signer(
-                //     ctx.accounts.token_program.to_account_info(),
-                //     transfer_instruction,
-                //     outer.as_slice(), //signer PDA
-                // );
-
-                // let amount_in_64 = ctx.accounts.base_account.reward_amount as u64;
-
-                // The `?` at the end will cause the function to return early in case of an error.
-                // This pattern is common in Rust.
-                // anchor_spl::token::transfer(cpi_ctx, amount_in_64)?;
-
                 let bump_vector = base_bump.to_le_bytes();
                 let inner = vec![
                     CANDIDATE_SEED,
@@ -193,6 +166,7 @@ pub mod candidate_staking {
                     system_program: ctx.accounts.system_program.to_account_info(),
                     token_program: ctx.accounts.token_program.to_account_info(),
                     rent : ctx.accounts.rent.to_account_info(),
+                    instructions: ctx.accounts.instruction.to_account_info(),
                 };
                 let cpi_program = ctx.accounts.job_program.to_account_info();
                 let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, outer.as_slice());
@@ -213,23 +187,20 @@ pub mod candidate_staking {
                 ];
                 let outer = vec![inner.as_slice()];
 
-                // Below is the actual instruction that we are going to send to the Token program.
-                let transfer_instruction = Transfer {
-                    from: ctx.accounts.escrow_wallet_state.to_account_info(),
-                    to: ctx.accounts.wallet_to_deposit_to.to_account_info(),
-                    authority: ctx.accounts.job_account.to_account_info(),
+                let cpi_accounts = UnstakeToken {
+                    job_account: ctx.accounts.job_account.to_account_info(),
+                    token_mint: ctx.accounts.token_mint.to_account_info(),
+                    authority: ctx.accounts.authority.to_account_info(),
+                    escrow_wallet_state: ctx.accounts.escrow_wallet_state.to_account_info(),
+                    wallet_to_deposit_to: ctx.accounts.wallet_to_deposit_to.to_account_info(),
+                    system_program: ctx.accounts.system_program.to_account_info(),
+                    token_program: ctx.accounts.token_program.to_account_info(),
+                    rent : ctx.accounts.rent.to_account_info(),
+                    instructions: ctx.accounts.instruction.to_account_info(),
                 };
-                let cpi_ctx = CpiContext::new_with_signer(
-                    ctx.accounts.token_program.to_account_info(),
-                    transfer_instruction,
-                    outer.as_slice(), //signer PDA
-                );
-
-                let amount_in_64 = ctx.accounts.base_account.staked_amount as u64;
-
-                // The `?` at the end will cause the function to return early in case of an error.
-                // This pattern is common in Rust.
-                // anchor_spl::token::transfer(cpi_ctx, amount_in_64)?;
+                let cpi_program = ctx.accounts.job_program.to_account_info();
+                let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, outer.as_slice());
+                job::cpi::unstake(cpi_ctx, job_ad_id, job_bump, wallet_bump, ctx.accounts.base_account.staked_amount)?;
             } // JobStatus::HEAD => todo!(),
         }
 
@@ -299,6 +270,7 @@ pub struct Stake<'info> {
     pub system_program: Program<'info, System>,
     pub token_program: Program<'info, Token>,
     pub rent: Sysvar<'info, Rent>,
+    
 }
 
 #[derive(Accounts)]
@@ -317,7 +289,6 @@ pub struct Unstake<'info> {
     pub application_account: Account<'info, ApplicationParameter>,
 
     pub application_program: Program<'info, Application>,
-    pub candidate_program: Program<'info, CandidateStaking>,
     #[account(
         mut,
         seeds = [WALLET_SEED, job_ad_id.as_bytes()[..18].as_ref(), job_ad_id.as_bytes()[18..].as_ref()],
@@ -336,6 +307,8 @@ pub struct Unstake<'info> {
     pub system_program: Program<'info, System>,
     pub token_program: Program<'info, Token>,
     pub rent: Sysvar<'info, Rent>,
+    ///CHECK:
+    pub instruction: AccountInfo<'info>
 }
 
 #[account]

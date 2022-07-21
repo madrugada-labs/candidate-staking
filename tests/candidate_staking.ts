@@ -846,10 +846,10 @@ describe("candidate_staking", () => {
         escrowWalletState: walletPDA,
         walletToDepositTo: casTokenAccount,
         jobProgram: jobProgram.programId,
-        candidateProgram: candidateProgram.programId,
         systemProgram: anchor.web3.SystemProgram.programId,
         tokenProgram: spl.TOKEN_PROGRAM_ID,
         rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+        instruction: anchor.web3.SYSVAR_INSTRUCTIONS_PUBKEY
       })
       .signers([cas])
       .rpc();
@@ -867,6 +867,22 @@ describe("candidate_staking", () => {
       _casTokenWallet.amount,
       initialMintAmount - stakeAmount + reward
     );
+
+    try {
+      const tx1 = await jobProgram.methods.unstake(jobAdId, jobFactoryBump, walletBump, 10).accounts({
+        jobAccount: jobFactoryPDA,
+        tokenMint: USDCMint,
+        authority: cas.publicKey,
+        escrowWalletState: walletPDA,
+        walletToDepositTo: casTokenAccount,
+        systemProgram: anchor.web3.SystemProgram.programId,
+        tokenProgram: spl.TOKEN_PROGRAM_ID,
+        rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+        instructions: anchor.web3.SYSVAR_INSTRUCTIONS_PUBKEY
+      }).signers([cas]).rpc();
+    } catch (error) {
+      assert.equal(error.error.errorCode.code, "InvalidCall");
+    }
 
     // changing application state to rejected
 
@@ -905,6 +921,7 @@ describe("candidate_staking", () => {
         systemProgram: anchor.web3.SystemProgram.programId,
         tokenProgram: spl.TOKEN_PROGRAM_ID,
         rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+        instruction: anchor.web3.SYSVAR_INSTRUCTIONS_PUBKEY
       })
       .signers([cas])
       .rpc();
@@ -953,6 +970,7 @@ describe("candidate_staking", () => {
         systemProgram: anchor.web3.SystemProgram.programId,
         tokenProgram: spl.TOKEN_PROGRAM_ID,
         rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+        instruction: anchor.web3.SYSVAR_INSTRUCTIONS_PUBKEY
         })
         .signers([cas])
         .rpc();
