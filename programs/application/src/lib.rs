@@ -3,6 +3,7 @@ pub use reward_calculator::RewardCalculator;
 use general::program::General;
 use general::{self, GeneralParameter};
 use std::str::FromStr;
+use anchor_lang::solana_program::sysvar::instructions as tx_instructions;
 
 use anchor_lang::prelude::*;
 
@@ -43,9 +44,21 @@ pub mod application {
 
     pub fn update_stake_amount(ctx: Context<UpdateStakeAmount>, _application_id: String, _application_bump: u8, stake_amount: u32) -> Result<()> {
         msg!("cpi call is made yippee");
-        let parameters = &mut ctx.accounts.base_account;
-        msg!("{}", parameters.staked_amount);
-        parameters.staked_amount += stake_amount; 
+        let candidate_staking_program_id: &str = "BF1jhf5eA5X1Tu8JByv8htnkUaG6WzmYEMLx2kbZ7YiW";
+
+        let ixns = ctx.accounts.instruction.to_account_info();
+        let current_index = tx_instructions::load_current_index_checked(&ixns)? as usize;
+        let current_ixn = tx_instructions::load_instruction_at_checked(current_index, &ixns)?;
+
+        msg!("Current program ID: {} application program ID: {}", current_ixn.program_id, *ctx.program_id);
+        if current_ixn.program_id.to_string() != candidate_staking_program_id {
+            return Err(error!(ErrorCode::InvalidCall));
+        }
+        else {
+           let parameters = &mut ctx.accounts.base_account;
+           msg!("{}", parameters.staked_amount);
+           parameters.staked_amount += stake_amount; 
+        }
         Ok(())
     }
 
@@ -78,6 +91,7 @@ pub struct UpdateStatus<'info> {
     pub base_account: Account<'info, ApplicationParameter>,
     #[account(mut)]
     pub authority: Signer<'info>,
+    
 }
 
 #[derive(Accounts)]
@@ -85,6 +99,11 @@ pub struct UpdateStatus<'info> {
 pub struct UpdateStakeAmount<'info> {
     #[account(mut, seeds = [APPLICATION_SEED, application_id.as_bytes()[..18].as_ref(), application_id.as_bytes()[18..].as_ref()], bump = application_bump)]
     pub base_account: Account<'info, ApplicationParameter>,
+    #[account(mut)]
+    pub authority: Signer<'info>,
+    #[account(address = tx_instructions::ID)]
+    ///CHECK:
+    pub instruction: AccountInfo<'info>
 }
 
 
@@ -120,4 +139,6 @@ pub enum ErrorCode {
     InvalidAuthority,
     #[msg("Invalid status value")]
     InvalidStatus,
+    #[msg("Program Is not called By CPI")]
+    InvalidCall,
 }

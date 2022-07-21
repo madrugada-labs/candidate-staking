@@ -2,9 +2,7 @@ use anchor_lang::prelude::*;
 use anchor_spl::token::{Mint, Token, TokenAccount, Transfer};
 use general::program::General;
 use anchor_lang::solana_program::sysvar::instructions as tx_instructions;
-// use candidate_staking::program::CandidateStaking;
 use general::{self, GeneralParameter};
-// use candidate_staking::{self, CandidateStakingParameter};
 
 declare_id!("69dteSt8rK7HLvku1kqXhw4UsmanCGa8sDcqxgeeYUS8");
 

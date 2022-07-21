@@ -89,6 +89,8 @@ pub mod candidate_staking {
 
                 let cpi_accounts = UpdateStakeAmount {
                     base_account: ctx.accounts.application_account.to_account_info(),
+                    authority: ctx.accounts.authority.to_account_info(),
+                    instruction: ctx.accounts.instruction.to_account_info(),
                 };
                 let cpi_program = ctx.accounts.application_program.to_account_info();
                 let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, outer.as_slice());
@@ -236,7 +238,7 @@ pub struct Initialize<'info> {
 #[instruction(job_ad_id: String, application_id: String, base_bump: u8, general_bump: u8, application_bump: u8, job_bump: u8, wallet_bump: u8)]
 pub struct Stake<'info> {
     #[account(mut, seeds = [CANDIDATE_SEED, application_id.as_bytes()[..18].as_ref(), application_id.as_bytes()[18..].as_ref() ,authority.key().as_ref()],bump = base_bump)]
-    pub base_account: Account<'info, CandidateParameter>,
+    pub base_account: Box<Account<'info, CandidateParameter>>,
     #[account(mut)]
     pub authority: Signer<'info>,
 
@@ -270,7 +272,8 @@ pub struct Stake<'info> {
     pub system_program: Program<'info, System>,
     pub token_program: Program<'info, Token>,
     pub rent: Sysvar<'info, Rent>,
-    
+    ///CHECK:   
+    pub instruction: AccountInfo<'info> 
 }
 
 #[derive(Accounts)]

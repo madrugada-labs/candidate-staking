@@ -568,6 +568,7 @@ describe("candidate_staking", () => {
         systemProgram: anchor.web3.SystemProgram.programId,
         tokenProgram: spl.TOKEN_PROGRAM_ID,
         rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+        instruction: anchor.web3.SYSVAR_INSTRUCTIONS_PUBKEY
       })
       .signers([cas])
       .rpc();
@@ -753,6 +754,7 @@ describe("candidate_staking", () => {
         systemProgram: anchor.web3.SystemProgram.programId,
         tokenProgram: spl.TOKEN_PROGRAM_ID,
         rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+        instruction: anchor.web3.SYSVAR_INSTRUCTIONS_PUBKEY
       })
       .signers([cas])
       .rpc();
