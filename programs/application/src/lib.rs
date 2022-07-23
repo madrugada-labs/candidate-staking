@@ -43,7 +43,7 @@ pub mod application {
         status: JobStatus,
     ) -> Result<()> {
         ctx.accounts.base_account.status = status;
-        
+        if ctx.accounts.base_account.status == JobStatus::Selected || ctx.accounts.base_account.status == JobStatus::SelectedButCantWithdraw {
                 let bump_vector = application_bump.to_le_bytes();
                 let inner = vec![
                     APPLICATION_SEED,
@@ -61,6 +61,7 @@ pub mod application {
                 let cpi_program = ctx.accounts.job_program.to_account_info();
                 let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, outer.as_slice());
                 job::cpi::update_rewards(cpi_ctx, job_id.clone(),job_bump, ctx.accounts.base_account.total_reward_amount)?;
+        }
         Ok(())
     }
 
