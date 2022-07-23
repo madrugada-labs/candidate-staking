@@ -94,7 +94,7 @@ pub mod candidate_staking {
                 };
                 let cpi_program = ctx.accounts.application_program.to_account_info();
                 let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, outer.as_slice());
-                application::cpi::update_stake_amount(cpi_ctx, application_id.clone(), application_bump, amount)?;
+                application::cpi::update_stake_amount(cpi_ctx, application_id.clone(), application_bump, amount, ctx.accounts.base_account.reward_amount)?;
 
                 // Below is the actual instruction that we are going to send to the Token program.
                 let transfer_instruction = Transfer {

@@ -623,12 +623,24 @@ describe("candidate_staking", () => {
         ],
         applicationProgram.programId
       );
+    const [jobPDA, jobBump] =
+      await anchor.web3.PublicKey.findProgramAddress(
+        [
+          Buffer.from("jobfactory"),
+          Buffer.from(jobAdId.substring(0, 18)),
+          Buffer.from(jobAdId.substring(18, 36)),
+        ],
+        jobProgram.programId
+      );
 
     const tx = await applicationProgram.methods
-      .updateStatus(applicationId, applicationBump, { selected: {} })
+      .updateStatus(applicationId, applicationBump, jobAdId, jobBump, { selected: {} })
       .accounts({
         baseAccount: applicationPDA,
         authority: admin.publicKey,
+        jobAccount: jobPDA,
+        jobProgram: jobProgram.programId,
+        instruction: anchor.web3.SYSVAR_INSTRUCTIONS_PUBKEY
       })
       .signers([admin])
       .rpc();
@@ -640,10 +652,13 @@ describe("candidate_staking", () => {
     assert("selected" in state.status);
 
     const tx1 = await applicationProgram.methods
-      .updateStatus(applicationId, applicationBump, { rejected: {} })
+      .updateStatus(applicationId, applicationBump, jobAdId, jobBump, { rejected: {} })
       .accounts({
         baseAccount: applicationPDA,
         authority: admin.publicKey,
+        jobAccount: jobPDA,
+        jobProgram: jobProgram.programId,
+        instruction: anchor.web3.SYSVAR_INSTRUCTIONS_PUBKEY
       })
       .signers([admin])
       .rpc();
@@ -655,16 +670,16 @@ describe("candidate_staking", () => {
     assert("rejected" in state.status);
 
     const tx2 = await applicationProgram.methods
-      .updateStatus(applicationId, applicationBump, {
-        selectedButCantWithdraw: {},
-      })
+      .updateStatus(applicationId, applicationBump, jobAdId, jobBump, { selectedButCantWithdraw: {} })
       .accounts({
         baseAccount: applicationPDA,
         authority: admin.publicKey,
+        jobAccount: jobPDA,
+        jobProgram: jobProgram.programId,
+        instruction: anchor.web3.SYSVAR_INSTRUCTIONS_PUBKEY
       })
       .signers([admin])
       .rpc();
-
     state = await applicationProgram.account.applicationParameter.fetch(
       applicationPDA
     );
@@ -815,11 +830,14 @@ describe("candidate_staking", () => {
 
     //changing the application state to selected
 
-    const tx1 = await applicationProgram.methods
-      .updateStatus(applicationId, applicationBump, { selected: {} })
+    const tx = await applicationProgram.methods
+      .updateStatus(applicationId, applicationBump, jobAdId, jobFactoryBump, { selected: {} })
       .accounts({
         baseAccount: applicationPDA,
         authority: admin.publicKey,
+        jobAccount: jobFactoryPDA,
+        jobProgram: jobProgram.programId,
+        instruction: anchor.web3.SYSVAR_INSTRUCTIONS_PUBKEY
       })
       .signers([admin])
       .rpc();
@@ -889,10 +907,13 @@ describe("candidate_staking", () => {
     // changing application state to rejected
 
     await applicationProgram.methods
-      .updateStatus(applicationId, applicationBump, { rejected: {} })
+      .updateStatus(applicationId, applicationBump, jobAdId, jobFactoryBump, { rejected: {} })
       .accounts({
         baseAccount: applicationPDA,
         authority: admin.publicKey,
+        jobAccount: jobFactoryPDA,
+        jobProgram: jobProgram.programId,
+        instruction: anchor.web3.SYSVAR_INSTRUCTIONS_PUBKEY
       })
       .signers([admin])
       .rpc();
@@ -939,12 +960,13 @@ describe("candidate_staking", () => {
     );
 
     await applicationProgram.methods
-      .updateStatus(applicationId, applicationBump, {
-        selectedButCantWithdraw: {},
-      })
+      .updateStatus(applicationId, applicationBump, jobAdId, jobFactoryBump, { selectedButCantWithdraw: {} })
       .accounts({
         baseAccount: applicationPDA,
         authority: admin.publicKey,
+        jobAccount: jobFactoryPDA,
+        jobProgram: jobProgram.programId,
+        instruction: anchor.web3.SYSVAR_INSTRUCTIONS_PUBKEY
       })
       .signers([admin])
       .rpc();
