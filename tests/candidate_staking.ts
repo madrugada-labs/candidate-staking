@@ -442,21 +442,32 @@ describe("candidate_staking", () => {
       await anchor.web3.PublicKey.findProgramAddress(
         [
           Buffer.from("wallet"),
-          Buffer.from(applicationId.substring(0, 18)),
-          Buffer.from(applicationId.substring(18, 36)),
-          cas.publicKey.toBuffer(),
+          Buffer.from(jobAdId.substring(0, 18)),
+          Buffer.from(jobAdId.substring(18, 36)),
         ],
         candidateStakingProgram.programId
       );
 
+    const [jobFactoryPDA, jobFactoryBump] =
+      await anchor.web3.PublicKey.findProgramAddress(
+        [
+          Buffer.from("jobfactory"),
+          Buffer.from(jobAdId.substring(0, 18)),
+          Buffer.from(jobAdId.substring(18, 36)),
+        ],
+        jobProgram.programId
+      );
+
     try {
       const tx = await candidateStakingProgram.methods
-        .initialize(jobAdId, applicationId)
+        .initialize(jobAdId, applicationId, jobFactoryBump)
         .accounts({
           baseAccount: candidatePDA,
+          jobAccount: jobFactoryPDA,
           escrowWalletState: walletPDA,
           tokenMint: USDCMint,
           authority: cas.publicKey,
+          jobProgram: jobProgram.programId,
           systemProgram: anchor.web3.SystemProgram.programId,
           tokenProgram: spl.TOKEN_PROGRAM_ID,
           rent: anchor.web3.SYSVAR_RENT_PUBKEY,
@@ -513,13 +524,12 @@ describe("candidate_staking", () => {
         generalProgram.programId
       );
 
-    const [walletPDA, walletBump] =
+      const [walletPDA, walletBump] =
       await anchor.web3.PublicKey.findProgramAddress(
         [
           Buffer.from("wallet"),
-          Buffer.from(applicationId.substring(0, 18)),
-          Buffer.from(applicationId.substring(18, 36)),
-          cas.publicKey.toBuffer(),
+          Buffer.from(jobAdId.substring(0, 18)),
+          Buffer.from(jobAdId.substring(18, 36)),
         ],
         candidateStakingProgram.programId
       );
@@ -531,7 +541,8 @@ describe("candidate_staking", () => {
       casTokenAccount
     );
 
-    const tx = await candidateStakingProgram.methods
+    try {
+      const tx = await candidateStakingProgram.methods
       .stake(
         jobAdId,
         applicationId,
@@ -547,7 +558,7 @@ describe("candidate_staking", () => {
         authority: cas.publicKey,
         tokenMint: USDCMint,
         generalAccount: generalPDA,
-        // jobAccount: jobPDA,
+        jobAccount: jobPDA,
         applicationAccount: applicationPDA,
         generalProgram: generalProgram.programId,
         applicationProgram: applicationProgram.programId,
@@ -557,9 +568,15 @@ describe("candidate_staking", () => {
         systemProgram: anchor.web3.SystemProgram.programId,
         tokenProgram: spl.TOKEN_PROGRAM_ID,
         rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+        instruction: anchor.web3.SYSVAR_INSTRUCTIONS_PUBKEY
       })
       .signers([cas])
       .rpc();
+    } catch (error) {
+      console.log(error)
+    }
+
+    
 
     const state =
       await candidateStakingProgram.account.candidateParameter.fetch(
@@ -580,9 +597,8 @@ describe("candidate_staking", () => {
       await anchor.web3.PublicKey.findProgramAddress(
         [
           Buffer.from("wallet"),
-          Buffer.from(applicationId.substring(0, 18)),
-          Buffer.from(applicationId.substring(18, 36)),
-          cas.publicKey.toBuffer(),
+          Buffer.from(jobAdId.substring(0, 18)),
+          Buffer.from(jobAdId.substring(18, 36)),
         ],
         candidateStakingProgram.programId
       );
@@ -607,12 +623,24 @@ describe("candidate_staking", () => {
         ],
         applicationProgram.programId
       );
+    const [jobPDA, jobBump] =
+      await anchor.web3.PublicKey.findProgramAddress(
+        [
+          Buffer.from("jobfactory"),
+          Buffer.from(jobAdId.substring(0, 18)),
+          Buffer.from(jobAdId.substring(18, 36)),
+        ],
+        jobProgram.programId
+      );
 
     const tx = await applicationProgram.methods
-      .updateStatus(applicationId, applicationBump, { selected: {} })
+      .updateStatus(applicationId, applicationBump, jobAdId, jobBump, { selected: {} })
       .accounts({
         baseAccount: applicationPDA,
         authority: admin.publicKey,
+        jobAccount: jobPDA,
+        jobProgram: jobProgram.programId,
+        instruction: anchor.web3.SYSVAR_INSTRUCTIONS_PUBKEY
       })
       .signers([admin])
       .rpc();
@@ -624,10 +652,13 @@ describe("candidate_staking", () => {
     assert("selected" in state.status);
 
     const tx1 = await applicationProgram.methods
-      .updateStatus(applicationId, applicationBump, { rejected: {} })
+      .updateStatus(applicationId, applicationBump, jobAdId, jobBump, { rejected: {} })
       .accounts({
         baseAccount: applicationPDA,
         authority: admin.publicKey,
+        jobAccount: jobPDA,
+        jobProgram: jobProgram.programId,
+        instruction: anchor.web3.SYSVAR_INSTRUCTIONS_PUBKEY
       })
       .signers([admin])
       .rpc();
@@ -639,16 +670,16 @@ describe("candidate_staking", () => {
     assert("rejected" in state.status);
 
     const tx2 = await applicationProgram.methods
-      .updateStatus(applicationId, applicationBump, {
-        selectedButCantWithdraw: {},
-      })
+      .updateStatus(applicationId, applicationBump, jobAdId, jobBump, { selectedButCantWithdraw: {} })
       .accounts({
         baseAccount: applicationPDA,
         authority: admin.publicKey,
+        jobAccount: jobPDA,
+        jobProgram: jobProgram.programId,
+        instruction: anchor.web3.SYSVAR_INSTRUCTIONS_PUBKEY
       })
       .signers([admin])
       .rpc();
-
     state = await applicationProgram.account.applicationParameter.fetch(
       applicationPDA
     );
@@ -694,13 +725,12 @@ describe("candidate_staking", () => {
         generalProgram.programId
       );
 
-    const [walletPDA, walletBump] =
+      const [walletPDA, walletBump] =
       await anchor.web3.PublicKey.findProgramAddress(
         [
           Buffer.from("wallet"),
-          Buffer.from(applicationId.substring(0, 18)),
-          Buffer.from(applicationId.substring(18, 36)),
-          cas.publicKey.toBuffer(),
+          Buffer.from(jobAdId.substring(0, 18)),
+          Buffer.from(jobAdId.substring(18, 36)),
         ],
         candidateStakingProgram.programId
       );
@@ -729,7 +759,7 @@ describe("candidate_staking", () => {
         authority: cas.publicKey,
         tokenMint: USDCMint,
         generalAccount: generalPDA,
-        // jobAccount: jobPDA,
+        jobAccount: jobPDA,
         applicationAccount: applicationPDA,
         generalProgram: generalProgram.programId,
         applicationProgram: applicationProgram.programId,
@@ -739,6 +769,7 @@ describe("candidate_staking", () => {
         systemProgram: anchor.web3.SystemProgram.programId,
         tokenProgram: spl.TOKEN_PROGRAM_ID,
         rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+        instruction: anchor.web3.SYSVAR_INSTRUCTIONS_PUBKEY
       })
       .signers([cas])
       .rpc();
@@ -761,6 +792,16 @@ describe("candidate_staking", () => {
         candidateStakingProgram.programId
       );
 
+    const [jobFactoryPDA, jobFactoryBump] =
+      await anchor.web3.PublicKey.findProgramAddress(
+        [
+          Buffer.from("jobfactory"),
+          Buffer.from(jobAdId.substring(0, 18)),
+          Buffer.from(jobAdId.substring(18, 36)),
+        ],
+        jobProgram.programId
+      );
+
     const [applicationPDA, applicationBump] =
       await anchor.web3.PublicKey.findProgramAddress(
         [
@@ -775,9 +816,8 @@ describe("candidate_staking", () => {
       await anchor.web3.PublicKey.findProgramAddress(
         [
           Buffer.from("wallet"),
-          Buffer.from(applicationId.substring(0, 18)),
-          Buffer.from(applicationId.substring(18, 36)),
-          cas.publicKey.toBuffer(),
+          Buffer.from(jobAdId.substring(0, 18)),
+          Buffer.from(jobAdId.substring(18, 36)),
         ],
         candidateStakingProgram.programId
       );
@@ -790,11 +830,14 @@ describe("candidate_staking", () => {
 
     //changing the application state to selected
 
-    const tx1 = await applicationProgram.methods
-      .updateStatus(applicationId, applicationBump, { selected: {} })
+    const tx = await applicationProgram.methods
+      .updateStatus(applicationId, applicationBump, jobAdId, jobFactoryBump, { selected: {} })
       .accounts({
         baseAccount: applicationPDA,
         authority: admin.publicKey,
+        jobAccount: jobFactoryPDA,
+        jobProgram: jobProgram.programId,
+        instruction: anchor.web3.SYSVAR_INSTRUCTIONS_PUBKEY
       })
       .signers([admin])
       .rpc();
@@ -810,22 +853,30 @@ describe("candidate_staking", () => {
       casTokenAccount
     );
 
-    const tx = await candidateStakingProgram.methods
-      .unstake(candidateBump, applicationBump, walletBump, applicationId)
+    try {
+      const tx = await candidateStakingProgram.methods
+      .unstake(candidateBump, applicationBump, walletBump, applicationId, jobAdId, jobFactoryBump)
       .accounts({
         baseAccount: candidatePDA,
+        jobAccount: jobFactoryPDA,
         authority: cas.publicKey,
         tokenMint: USDCMint,
         applicationAccount: applicationPDA,
         applicationProgram: applicationProgram.programId,
         escrowWalletState: walletPDA,
         walletToDepositTo: casTokenAccount,
+        jobProgram: jobProgram.programId,
         systemProgram: anchor.web3.SystemProgram.programId,
         tokenProgram: spl.TOKEN_PROGRAM_ID,
         rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+        instruction: anchor.web3.SYSVAR_INSTRUCTIONS_PUBKEY
       })
       .signers([cas])
       .rpc();
+    } catch (error) {
+      console.log(error)
+    }
+    
 
     _casTokenWallet = await spl.getAccount(
       provider.connection,
@@ -837,13 +888,32 @@ describe("candidate_staking", () => {
       initialMintAmount - stakeAmount + reward
     );
 
+    try {
+      const tx1 = await jobProgram.methods.unstake(jobAdId, jobFactoryBump, walletBump, 10).accounts({
+        jobAccount: jobFactoryPDA,
+        tokenMint: USDCMint,
+        authority: cas.publicKey,
+        escrowWalletState: walletPDA,
+        walletToDepositTo: casTokenAccount,
+        systemProgram: anchor.web3.SystemProgram.programId,
+        tokenProgram: spl.TOKEN_PROGRAM_ID,
+        rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+        instructions: anchor.web3.SYSVAR_INSTRUCTIONS_PUBKEY
+      }).signers([cas]).rpc();
+    } catch (error) {
+      assert.equal(error.error.errorCode.code, "InvalidCall");
+    }
+
     // changing application state to rejected
 
     await applicationProgram.methods
-      .updateStatus(applicationId, applicationBump, { rejected: {} })
+      .updateStatus(applicationId, applicationBump, jobAdId, jobFactoryBump, { rejected: {} })
       .accounts({
         baseAccount: applicationPDA,
         authority: admin.publicKey,
+        jobAccount: jobFactoryPDA,
+        jobProgram: jobProgram.programId,
+        instruction: anchor.web3.SYSVAR_INSTRUCTIONS_PUBKEY
       })
       .signers([admin])
       .rpc();
@@ -860,18 +930,21 @@ describe("candidate_staking", () => {
     );
 
     await candidateStakingProgram.methods
-      .unstake(candidateBump, applicationBump, walletBump, applicationId)
+      .unstake(candidateBump, applicationBump, walletBump, applicationId, jobAdId, jobFactoryBump)
       .accounts({
         baseAccount: candidatePDA,
+        jobAccount: jobFactoryPDA,
         authority: cas.publicKey,
         tokenMint: USDCMint,
         applicationAccount: applicationPDA,
         applicationProgram: applicationProgram.programId,
         escrowWalletState: walletPDA,
         walletToDepositTo: casTokenAccount,
+        jobProgram: jobProgram.programId,
         systemProgram: anchor.web3.SystemProgram.programId,
         tokenProgram: spl.TOKEN_PROGRAM_ID,
         rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+        instruction: anchor.web3.SYSVAR_INSTRUCTIONS_PUBKEY
       })
       .signers([cas])
       .rpc();
@@ -887,12 +960,13 @@ describe("candidate_staking", () => {
     );
 
     await applicationProgram.methods
-      .updateStatus(applicationId, applicationBump, {
-        selectedButCantWithdraw: {},
-      })
+      .updateStatus(applicationId, applicationBump, jobAdId, jobFactoryBump, { selectedButCantWithdraw: {} })
       .accounts({
         baseAccount: applicationPDA,
         authority: admin.publicKey,
+        jobAccount: jobFactoryPDA,
+        jobProgram: jobProgram.programId,
+        instruction: anchor.web3.SYSVAR_INSTRUCTIONS_PUBKEY
       })
       .signers([admin])
       .rpc();
@@ -906,18 +980,21 @@ describe("candidate_staking", () => {
     // This instruction should fail, cause in this state the user cannot withdraw the rewards and the initialAmount
     try {
       await candidateStakingProgram.methods
-        .unstake(candidateBump, applicationBump, walletBump, applicationId)
+        .unstake(candidateBump, applicationBump, walletBump, applicationId, jobAdId, jobFactoryBump)
         .accounts({
           baseAccount: candidatePDA,
-          authority: cas.publicKey,
-          tokenMint: USDCMint,
-          applicationAccount: applicationPDA,
-          applicationProgram: applicationProgram.programId,
-          escrowWalletState: walletPDA,
-          walletToDepositTo: casTokenAccount,
-          systemProgram: anchor.web3.SystemProgram.programId,
-          tokenProgram: spl.TOKEN_PROGRAM_ID,
-          rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+        jobAccount: jobFactoryPDA,
+        authority: cas.publicKey,
+        tokenMint: USDCMint,
+        applicationAccount: applicationPDA,
+        applicationProgram: applicationProgram.programId,
+        escrowWalletState: walletPDA,
+        walletToDepositTo: casTokenAccount,
+        jobProgram: jobProgram.programId,
+        systemProgram: anchor.web3.SystemProgram.programId,
+        tokenProgram: spl.TOKEN_PROGRAM_ID,
+        rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+        instruction: anchor.web3.SYSVAR_INSTRUCTIONS_PUBKEY
         })
         .signers([cas])
         .rpc();

@@ -83,18 +83,20 @@ mod test {
     fn new_application_parameters(
         staked_amount: u32,
         max_allowed_staked: u32,
+        total_reward_amount: u32
     ) -> ApplicationParameter {
         ApplicationParameter {
             authority: Pubkey::new_from_array([0; 32]),
             status: JobStatus::Pending,
             staked_amount,
             max_allowed_staked,
+            total_reward_amount
         }
     }
 
     #[test]
     fn calculate_reward_tier_one_only() {
-        let application_parameters = new_application_parameters(0, 100);
+        let application_parameters = new_application_parameters(0, 100, 0);
         let reward_calculator = RewardCalculator {
             application_parameters: &application_parameters,
         };
@@ -103,7 +105,7 @@ mod test {
 
     #[test]
     fn calculate_reward_tier_two_only() {
-        let application_parameters = new_application_parameters(33, 100);
+        let application_parameters = new_application_parameters(33, 100, 0);
         let reward_calculator = RewardCalculator {
             application_parameters: &application_parameters,
         };
@@ -112,7 +114,7 @@ mod test {
 
     #[test]
     fn calculate_reward_tier_three_only() {
-        let application_parameters = new_application_parameters(66, 100);
+        let application_parameters = new_application_parameters(66, 100, 0);
         let reward_calculator = RewardCalculator {
             application_parameters: &application_parameters,
         };
@@ -121,7 +123,7 @@ mod test {
 
     #[test]
     fn calculate_reward_tier_one_and_two() {
-        let application_parameters = new_application_parameters(0, 100);
+        let application_parameters = new_application_parameters(0, 100, 0);
         let reward_calculator = RewardCalculator {
             application_parameters: &application_parameters,
         };
@@ -130,7 +132,7 @@ mod test {
 
     #[test]
     fn calculate_reward_tier_two_and_three() {
-        let application_parameters = new_application_parameters(50, 100);
+        let application_parameters = new_application_parameters(50, 100, 0);
         let reward_calculator = RewardCalculator {
             application_parameters: &application_parameters,
         };
@@ -139,7 +141,7 @@ mod test {
 
     #[test]
     fn calculate_reward_three_tiers_only() {
-        let application_parameters = new_application_parameters(0, 100);
+        let application_parameters = new_application_parameters(0, 100, 0);
         let reward_calculator = RewardCalculator {
             application_parameters: &application_parameters,
         };
@@ -151,7 +153,7 @@ mod test {
 
     #[test]
     fn calculate_reward_not_staking_capacity() {
-        let application_parameters = new_application_parameters(80, 100);
+        let application_parameters = new_application_parameters(80, 100, 0);
         let reward_calculator = RewardCalculator {
             application_parameters: &application_parameters,
         };
