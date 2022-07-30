@@ -52,12 +52,17 @@ pub mod candidate_staking {
             let already_staked_amount = application_parameter.staked_amount;
             let max_amount = application_parameter.max_allowed_staked;
 
-            if already_staked_amount + amount < max_amount {
+            if already_staked_amount
+                .checked_add(amount)
+                .ok_or_else(|| ErrorCode::MaxAmountExceeded)?
+                < max_amount
+            {
                 msg!("You can transfer");
                 msg!("Transfer is initiated");
 
                 let reward_calculator = RewardCalculator::new(application_parameter.as_ref());
 
+                // TODO: upgrade this with safe operations (like checked_add)
                 ctx.accounts.base_account.staked_amount += amount;
                 ctx.accounts.base_account.reward_amount +=
                     reward_calculator.calculate_reward(amount)?;
