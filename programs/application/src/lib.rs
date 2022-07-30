@@ -44,7 +44,9 @@ pub mod application {
         msg!("cpi call is made yippee");
         let parameters = &mut ctx.accounts.base_account;
         msg!("{}", parameters.staked_amount);
-        parameters.staked_amount += stake_amount; 
+        // TODO(dhruv - question): is this an admin operation only? Where's the check for that?
+        // ensure that the amount does not overflow
+        parameters.staked_amount += parameters.staked_amount.checked_add(stake_amount).ok_or_else(|| ErrorCode::StakeAmountOverflow)?;
         Ok(())
     }
 
@@ -119,4 +121,6 @@ pub enum ErrorCode {
     InvalidAuthority,
     #[msg("Invalid status value")]
     InvalidStatus,
+    #[msg("Stake amount overflow")]
+    StakeAmountOverflow,
 }
