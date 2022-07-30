@@ -1,17 +1,16 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{Mint, Token, TokenAccount, Transfer};
-use application::program::Application;
 use application::cpi::accounts::UpdateStakeAmount;
+use application::program::Application;
 use application::{self, ApplicationParameter, JobStatus, RewardCalculator};
 use general::program::General;
 use general::{self, GeneralParameter};
 use job::program::Job;
-use job::{self, JobStakingParameter};
+use job::{self};
 
 declare_id!("BF1jhf5eA5X1Tu8JByv8htnkUaG6WzmYEMLx2kbZ7YiW");
 
 const CANDIDATE_SEED: &'static [u8] = b"candidate";
-const JOB_SEED: &'static [u8] = b"jobfactory";
 const APPLICATION_SEED: &'static [u8] = b"application";
 const GENERAL_SEED: &'static [u8] = b"general";
 const WALLET_SEED: &'static [u8] = b"wallet";
@@ -89,8 +88,14 @@ pub mod candidate_staking {
                     base_account: ctx.accounts.application_account.to_account_info(),
                 };
                 let cpi_program = ctx.accounts.application_program.to_account_info();
-                let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, outer.as_slice());
-                application::cpi::update_stake_amount(cpi_ctx, application_id.clone(), application_bump, amount)?;
+                let cpi_ctx =
+                    CpiContext::new_with_signer(cpi_program, cpi_accounts, outer.as_slice());
+                application::cpi::update_stake_amount(
+                    cpi_ctx,
+                    application_id.clone(),
+                    application_bump,
+                    amount,
+                )?;
 
                 // Below is the actual instruction that we are going to send to the Token program.
                 let transfer_instruction = Transfer {

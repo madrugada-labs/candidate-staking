@@ -115,14 +115,15 @@ describe("candidate_staking", () => {
         [admin]
       );
 
-      let _casTokenAccount = await spl.getAccount(
+      let casTokenAccountUpdated = await spl.getAccount(
         provider.connection,
         casTokenAccount
       );
 
-      assert.equal(initialMintAmount, _casTokenAccount.amount);
+      assert.equal(initialMintAmount, casTokenAccountUpdated.amount);
     });
   } else {
+    // TODO(dhruv): can you explain where these private keys come from? Maybe we can have them in another file, an load them directly?
     const alicePrivate =
       "472ZS33Lftn7wdM31QauCkmpgFKFvgBRg6Z6NGtA6JgeRi1NfeZFRNvNi3b3sh5jvrQWrgiTimr8giVs9oq4UM5g";
     const casPrivate =
@@ -202,17 +203,7 @@ describe("candidate_staking", () => {
   let jobAdId = uuidv4();
   let applicationId = uuidv4();
 
-  // successfull uids
-  // const jobAdId = "cd03097e-63a3-4ad7-b1ae-a9d8748d1e8b"
-  // const applicationId = "25df58b2-e5a7-46c7-9803-fdfd2a3895d4" 
-
-  // //unsuccessful uids
-  // const jobAdId = "c0f4feb3-a7a6-4d54-97c3-a7c06562a500"
-  // const applicationId = "37f9b205-998c-4583-8d58-ebb7db846755" 
-
-  // jobAdId = jobAdId.replaceAll('-','');
-  // applicationId = applicationId.replaceAll('-','');
-
+  // TODO(dhruv): let's change the name general program. What does it do? Can we be more specific? Maybe orchestrator? 
   it("Initializing General Program", async () => {
     const [generalPDA, generalBump] =
       await anchor.web3.PublicKey.findProgramAddress(
@@ -251,7 +242,6 @@ describe("candidate_staking", () => {
   });
 
   it("Initializing Job Program", async () => {
-    // Add your test here.
 
     const [generalPDA, generalBump] =
       await anchor.web3.PublicKey.findProgramAddress(
@@ -344,6 +334,7 @@ describe("candidate_staking", () => {
         generalProgram.programId
       );
 
+      // TODO(dhruv): let's create a helper function that takes the seed + uuid and returns vec![Buffer(...), Buffer(...), Buffer(...)]
     const [applicationPDA, applicationBump] =
       await anchor.web3.PublicKey.findProgramAddress(
         [
@@ -413,7 +404,7 @@ describe("candidate_staking", () => {
     } catch (error) {
       assert.equal(
         error.logs[4],
-        "Program 11111111111111111111111111111111 failed: custom program error: 0x0"
+        "Program 11111111111111111111111111111111 failed: custom program error: 0x0" // TODO-question(dhruv): add docs of what this error means. Why not getting something related with initialization instead?
       );
     }
 
@@ -423,7 +414,7 @@ describe("candidate_staking", () => {
 
     assert.equal(state.stakedAmount, 0);
     assert.equal(state.authority.toBase58(), admin.publicKey.toBase58());
-    assert("pending" in state.status);
+    assert("pending" in state.status); //question: why "pending" and not "Pending"?
   });
 
   it("intialize candidate_staking program", async () => {
@@ -464,7 +455,7 @@ describe("candidate_staking", () => {
         .signers([cas])
         .rpc();
     } catch (error) {
-      console.log(error);
+      console.log(error); // TODO(dhruv): can this error happen?
     }
 
     const state =
@@ -547,7 +538,6 @@ describe("candidate_staking", () => {
         authority: cas.publicKey,
         tokenMint: USDCMint,
         generalAccount: generalPDA,
-        // jobAccount: jobPDA,
         applicationAccount: applicationPDA,
         generalProgram: generalProgram.programId,
         applicationProgram: applicationProgram.programId,
@@ -558,7 +548,7 @@ describe("candidate_staking", () => {
         tokenProgram: spl.TOKEN_PROGRAM_ID,
         rent: anchor.web3.SYSVAR_RENT_PUBKEY,
       })
-      .signers([cas])
+      .signers([cas]) // TODO-question(dhruv)what is CAS?
       .rpc();
 
     const state =
@@ -575,6 +565,12 @@ describe("candidate_staking", () => {
     assert.equal(_casTokenWallet.amount, initialMintAmount - stakeAmount);
   });
 
+  /*
+  - crete a failed stake test on an applicatoin id that does not exist
+  - crete a failed stake test on an job id that does not exist
+  - crete a failed stake test on wallet to withdwraw that's not owned by the priv key that's staking
+
+   */
   it("Minting some tokens to escrow account to pay for rewards", async () => {
     const [walletPDA, walletBump] =
       await anchor.web3.PublicKey.findProgramAddress(
@@ -658,6 +654,7 @@ describe("candidate_staking", () => {
 
   it("Not able to stake after changing the status of application", async() => {
 
+    // TODO: create a helper function for getting all these PDAs and bumps, since it's used more than once (with the uuids as input)
     const [candidatePDA, candidateBump] =
       await anchor.web3.PublicKey.findProgramAddress(
         [
@@ -707,10 +704,6 @@ describe("candidate_staking", () => {
 
     const stakeAmountInBN = new anchor.BN(stakeAmount);
 
-    let _casTokenWallet = await spl.getAccount(
-      provider.connection,
-      casTokenAccount
-    );
 
     try {
       const tx = await candidateStakingProgram.methods
@@ -729,7 +722,6 @@ describe("candidate_staking", () => {
         authority: cas.publicKey,
         tokenMint: USDCMint,
         generalAccount: generalPDA,
-        // jobAccount: jobPDA,
         applicationAccount: applicationPDA,
         generalProgram: generalProgram.programId,
         applicationProgram: applicationProgram.programId,
@@ -939,5 +931,6 @@ describe("candidate_staking", () => {
     const onlyTier3Amount = 3000; // There will be 3333 already in tier 1, 3333 in tier2 so this remaining amount would be in tier 3 entirely
 
     //TODO: Write the test case for the above
+    // TODO: please do!
   });
 });

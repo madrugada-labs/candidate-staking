@@ -2,7 +2,6 @@ mod reward_calculator;
 pub use reward_calculator::RewardCalculator;
 use general::program::General;
 use general::{self, GeneralParameter};
-use std::str::FromStr;
 
 use anchor_lang::prelude::*;
 
