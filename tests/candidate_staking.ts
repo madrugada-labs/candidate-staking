@@ -124,6 +124,8 @@ describe("candidate_staking", () => {
     });
   } else {
     // TODO(dhruv): can you explain where these private keys come from? Maybe we can have them in another file, an load them directly?
+    // These are the private keys of accounts which i have created and have deposited some SOL in it. Since we cannot airdrop much SOL on devnet (fails most of the time), i have previously airdropped some SOL so that these accounts can be used for testing on devnet.
+    // We can have them in another file and import them. But these are only for testing and has 0 balance on mainnet.
     const alicePrivate =
       "472ZS33Lftn7wdM31QauCkmpgFKFvgBRg6Z6NGtA6JgeRi1NfeZFRNvNi3b3sh5jvrQWrgiTimr8giVs9oq4UM5g";
     const casPrivate =
@@ -375,7 +377,6 @@ describe("candidate_staking", () => {
   it("Initializing Application Program", async () => {
     const { generalPDA, generalBump } = await getGeneralPDA();
 
-    // TODO(dhruv): let's create a helper function that takes the seed + uuid and returns vec![Buffer(...), Buffer(...), Buffer(...)]
     const {applicationPDA, applicationBump} = await getApplicationPDA(applicationId);
 
     // Checks that only the authority can initialize the program
@@ -438,6 +439,7 @@ describe("candidate_staking", () => {
       assert.equal(
         error.logs[4],
         "Program 11111111111111111111111111111111 failed: custom program error: 0x0" // TODO-question(dhruv): add docs of what this error means. Why not getting something related with initialization instead?
+        // The above error refers to address already in use which means that we are trying to initialize the program again which is forbidden.
       );
     }
 
@@ -474,7 +476,7 @@ describe("candidate_staking", () => {
         .signers([cas])
         .rpc();
     } catch (error) {
-      console.log(error); // TODO(dhruv): can this error happen?
+      console.log(error); // TODO(dhruv): can this error happen? -> This wont happen, but i need to add some more cases where the error can.
     }
 
     const state =
@@ -540,7 +542,7 @@ describe("candidate_staking", () => {
           rent: anchor.web3.SYSVAR_RENT_PUBKEY,
           instruction: anchor.web3.SYSVAR_INSTRUCTIONS_PUBKEY,
         })
-        .signers([cas]) // TODO-question(dhruv)what is CAS?
+        .signers([cas]) // TODO-question(dhruv)what is CAS? -> Cas is the person who is staking on the application.
         .rpc();
     } catch (error) {
       console.log(error);
@@ -651,7 +653,6 @@ describe("candidate_staking", () => {
   });
 
   it("Not able to stake after changing the status of application", async () => {
-    // TODO: create a helper function for getting all these PDAs and bumps, since it's used more than once (with the uuids as input)
     const {candidatePDA, candidateBump} = await getCandidatePDA(applicationId, cas.publicKey);
 
     const {applicationPDA, applicationBump} = await getApplicationPDA(applicationId);
