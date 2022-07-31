@@ -31,7 +31,6 @@ impl<'a> RewardCalculator<'a> {
         let available_amount_to_stake = max_allowed_staked - w;
         if self.application_parameters.status != JobStatus::Pending || k > available_amount_to_stake
         {
-            // TODO: return a custom created error
             return Err(ErrorCode::RequireViolated);
         }
 
@@ -82,7 +81,7 @@ mod test {
     fn new_application_parameters(
         staked_amount: u32,
         max_allowed_staked: u32,
-        total_reward_amount: u32
+        total_reward_amount: u32,
     ) -> ApplicationParameter {
         ApplicationParameter {
             authority: Pubkey::new_from_array([0; 32]),
@@ -90,7 +89,7 @@ mod test {
             staked_amount,
             max_allowed_staked,
             total_reward_amount,
-            update_reward_value_in_job: false 
+            update_reward_value_in_job: false,
         }
     }
 

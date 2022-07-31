@@ -1,11 +1,11 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{Mint, Token, TokenAccount, Transfer};
 use application::cpi::accounts::UpdateStakeAmount;
-use job::cpi::accounts::UnstakeToken;
-use application::{self, ApplicationParameter, JobStatus, RewardCalculator};
 use application::program::Application;
+use application::{self, ApplicationParameter, JobStatus, RewardCalculator};
 use general::program::General;
 use general::{self, GeneralParameter};
+use job::cpi::accounts::UnstakeToken;
 use job::program::Job;
 use job::{self, JobStakingParameter};
 
@@ -26,7 +26,7 @@ pub mod candidate_staking {
         ctx: Context<Initialize>,
         _job_ad_id: String,
         _application_id: String,
-        _job_bump: u8
+        _job_bump: u8,
     ) -> Result<()> {
         let state = &mut ctx.accounts.base_account;
 
@@ -98,8 +98,15 @@ pub mod candidate_staking {
                     instruction: ctx.accounts.instruction.to_account_info(),
                 };
                 let cpi_program = ctx.accounts.application_program.to_account_info();
-                let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, outer.as_slice());
-                application::cpi::update_stake_amount(cpi_ctx, application_id.clone(), application_bump, amount, ctx.accounts.base_account.reward_amount)?;
+                let cpi_ctx =
+                    CpiContext::new_with_signer(cpi_program, cpi_accounts, outer.as_slice());
+                application::cpi::update_stake_amount(
+                    cpi_ctx,
+                    application_id.clone(),
+                    application_bump,
+                    amount,
+                    ctx.accounts.base_account.reward_amount,
+                )?;
 
                 // Below is the actual instruction that we are going to send to the Token program.
                 let transfer_instruction = Transfer {
@@ -172,13 +179,19 @@ pub mod candidate_staking {
                     wallet_to_deposit_to: ctx.accounts.wallet_to_deposit_to.to_account_info(),
                     system_program: ctx.accounts.system_program.to_account_info(),
                     token_program: ctx.accounts.token_program.to_account_info(),
-                    rent : ctx.accounts.rent.to_account_info(),
+                    rent: ctx.accounts.rent.to_account_info(),
                     instructions: ctx.accounts.instruction.to_account_info(),
                 };
                 let cpi_program = ctx.accounts.job_program.to_account_info();
-                let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, outer.as_slice());
-                job::cpi::unstake(cpi_ctx, job_ad_id, job_bump, wallet_bump, ctx.accounts.base_account.reward_amount)?;
-
+                let cpi_ctx =
+                    CpiContext::new_with_signer(cpi_program, cpi_accounts, outer.as_slice());
+                job::cpi::unstake(
+                    cpi_ctx,
+                    job_ad_id,
+                    job_bump,
+                    wallet_bump,
+                    ctx.accounts.base_account.reward_amount,
+                )?;
             }
             JobStatus::Rejected => {
                 msg!("you are rejected");
@@ -202,13 +215,20 @@ pub mod candidate_staking {
                     wallet_to_deposit_to: ctx.accounts.wallet_to_deposit_to.to_account_info(),
                     system_program: ctx.accounts.system_program.to_account_info(),
                     token_program: ctx.accounts.token_program.to_account_info(),
-                    rent : ctx.accounts.rent.to_account_info(),
+                    rent: ctx.accounts.rent.to_account_info(),
                     instructions: ctx.accounts.instruction.to_account_info(),
                 };
                 let cpi_program = ctx.accounts.job_program.to_account_info();
-                let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, outer.as_slice());
-                job::cpi::unstake(cpi_ctx, job_ad_id, job_bump, wallet_bump, ctx.accounts.base_account.staked_amount)?;
-            } // JobStatus::HEAD => todo!(),
+                let cpi_ctx =
+                    CpiContext::new_with_signer(cpi_program, cpi_accounts, outer.as_slice());
+                job::cpi::unstake(
+                    cpi_ctx,
+                    job_ad_id,
+                    job_bump,
+                    wallet_bump,
+                    ctx.accounts.base_account.staked_amount,
+                )?;
+            }
         }
 
         Ok(())
@@ -278,7 +298,7 @@ pub struct Stake<'info> {
     pub token_program: Program<'info, Token>,
     pub rent: Sysvar<'info, Rent>,
     ///CHECK:   
-    pub instruction: AccountInfo<'info> 
+    pub instruction: AccountInfo<'info>,
 }
 
 #[derive(Accounts)]
@@ -316,7 +336,7 @@ pub struct Unstake<'info> {
     pub token_program: Program<'info, Token>,
     pub rent: Sysvar<'info, Rent>,
     ///CHECK:
-    pub instruction: AccountInfo<'info>
+    pub instruction: AccountInfo<'info>,
 }
 
 #[account]

@@ -8,8 +8,6 @@ declare_id!("69dteSt8rK7HLvku1kqXhw4UsmanCGa8sDcqxgeeYUS8");
 
 const JOB_FACTORY_SEED: &'static [u8] = b"jobfactory";
 const GENERAL_SEED: &'static [u8] = b"general";
-const WALLET_SEED: &'static [u8] = b"wallet";
-const CANDIDATE_SEED: &'static [u8] = b"candidate";
 
 #[program]
 pub mod job {
