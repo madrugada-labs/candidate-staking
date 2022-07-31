@@ -1,5 +1,5 @@
 use crate::{ApplicationParameter, JobStatus};
-use anchor_lang::prelude::ErrorCode;
+use anchor_lang::prelude::*;
 
 use std::cmp::{max, min};
 
@@ -22,16 +22,20 @@ impl<'a> RewardCalculator<'a> {
         }
     }
 
-    pub fn calculate_reward(&self, k: u32) -> Result<u32, ErrorCode> {
+    pub fn calculate_reward(&self, k: u32) -> Result<u32> {
         // for simplicity -> k: amount_pledged_to_stake
         let mut k = k;
         let w = self.application_parameters.staked_amount;
         let max_allowed_staked = self.application_parameters.max_allowed_staked;
 
-        let available_amount_to_stake = max_allowed_staked - w;
-        if self.application_parameters.status != JobStatus::Pending || k > available_amount_to_stake
-        {
-            return Err(ErrorCode::RequireViolated);
+        let available_amount_to_stake = max_allowed_staked
+            .checked_sub(w)
+            .ok_or_else(|| ErrorCode::AmountUnderflow)?;
+        if self.application_parameters.status != JobStatus::Pending {
+            return Err(error!(ErrorCode::StatusNotPending));
+        }
+        if k > available_amount_to_stake {
+            return Err(error!(ErrorCode::NotEnoughStakeAvailable));
         }
 
         let k_tier_1 = min(
@@ -68,6 +72,16 @@ impl<'a> RewardCalculator<'a> {
         let c = 1;
         Ok(k_tier_1 * a + k_tier_2 * b + k_tier_3 * c)
     }
+}
+
+#[error_code]
+pub enum ErrorCode {
+    #[msg("Amount underflowed")]
+    AmountUnderflow,
+    #[msg("Status isn't Pending")]
+    StatusNotPending,
+    #[msg("Staking available is less than what the user wants to stake")]
+    NotEnoughStakeAvailable,
 }
 
 #[cfg(test)]
