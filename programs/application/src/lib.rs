@@ -174,4 +174,6 @@ pub enum ErrorCode {
     InvalidStatus,
     #[msg("Program is not called By CPI")]
     InvalidCall,
+    #[msg("Stake amount overflow")]
+    StakeAmountOverflow,
 }

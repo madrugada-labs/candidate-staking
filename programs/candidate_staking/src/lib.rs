@@ -1,18 +1,16 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{Mint, Token, TokenAccount, Transfer};
-use application::program::Application;
 use application::cpi::accounts::UpdateStakeAmount;
 use job::cpi::accounts::UnstakeToken;
 use application::{self, ApplicationParameter, JobStatus, RewardCalculator};
 use general::program::General;
 use general::{self, GeneralParameter};
 use job::program::Job;
-use job::{self, JobStakingParameter};
+use job::{self};
 
 declare_id!("BF1jhf5eA5X1Tu8JByv8htnkUaG6WzmYEMLx2kbZ7YiW");
 
 const CANDIDATE_SEED: &'static [u8] = b"candidate";
-const JOB_SEED: &'static [u8] = b"jobfactory";
 const APPLICATION_SEED: &'static [u8] = b"application";
 const GENERAL_SEED: &'static [u8] = b"general";
 const WALLET_SEED: &'static [u8] = b"wallet";
@@ -55,12 +53,17 @@ pub mod candidate_staking {
             let already_staked_amount = application_parameter.staked_amount;
             let max_amount = application_parameter.max_allowed_staked;
 
-            if already_staked_amount + amount < max_amount {
+            if already_staked_amount
+                .checked_add(amount)
+                .ok_or_else(|| ErrorCode::MaxAmountExceeded)?
+                < max_amount
+            {
                 msg!("You can transfer");
                 msg!("Transfer is initiated");
 
                 let reward_calculator = RewardCalculator::new(application_parameter.as_ref());
 
+                // TODO: upgrade this with safe operations (like checked_add)
                 ctx.accounts.base_account.staked_amount += amount;
                 ctx.accounts.base_account.reward_amount +=
                     reward_calculator.calculate_reward(amount)?;

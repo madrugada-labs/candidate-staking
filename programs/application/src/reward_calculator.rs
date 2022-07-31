@@ -63,7 +63,6 @@ impl<'a> RewardCalculator<'a> {
                 ),
             ),
         );
-        k = k.saturating_sub(k_tier_3);
 
         let a = 3;
         let b = 2;
