@@ -42,8 +42,9 @@ pub mod application {
         job_bump: u8,
         status: JobStatus,
     ) -> Result<()> {
-        ctx.accounts.base_account.status = status;
-        if ctx.accounts.base_account.status == JobStatus::Selected || ctx.accounts.base_account.status == JobStatus::SelectedButCantWithdraw {
+        let parameters = &mut ctx.accounts.base_account; 
+        parameters.status = status;
+        if !parameters.update_reward_value_in_job && (parameters.status == JobStatus::Selected || parameters.status == JobStatus::SelectedButCantWithdraw ){
                 let bump_vector = application_bump.to_le_bytes();
                 let inner = vec![
                     APPLICATION_SEED,
@@ -60,7 +61,8 @@ pub mod application {
                 };
                 let cpi_program = ctx.accounts.job_program.to_account_info();
                 let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, outer.as_slice());
-                job::cpi::update_rewards(cpi_ctx, job_id.clone(),job_bump, ctx.accounts.base_account.total_reward_amount)?;
+                job::cpi::update_rewards(cpi_ctx, job_id.clone(),job_bump, parameters.total_reward_amount)?;
+                parameters.update_reward_value_in_job = true;
         }
         Ok(())
     }
@@ -97,7 +99,7 @@ pub struct Initialize<'info> {
         seeds = [APPLICATION_SEED, application_id.as_bytes()[..18].as_ref(), application_id.as_bytes()[18..].as_ref()],
         bump, 
         constraint = authority.key() == general_account.authority @ ErrorCode::InvalidAuthority,
-        space = 8 + 32 + 1 + 4 + 4 + 4
+        space = 8 + 32 + 1 + 4 + 4 + 4 + 1
     )]
     pub base_account: Account<'info, ApplicationParameter>,
     #[account(mut, seeds = [GENERAL_SEED], bump = general_bump, seeds::program = general_program.key())]
@@ -151,7 +153,8 @@ pub struct ApplicationParameter {
     pub status: JobStatus,       // 1 byte
     pub staked_amount: u32,      // 4 bytes
     pub max_allowed_staked: u32, // 4 bytes
-    pub total_reward_amount: u32 // 4 bytes
+    pub total_reward_amount: u32, // 4 bytes
+    pub update_reward_value_in_job: bool // 1 byte
 }
 
 impl ApplicationParameter {
@@ -169,6 +172,6 @@ pub enum ErrorCode {
     InvalidAuthority,
     #[msg("Invalid status value")]
     InvalidStatus,
-    #[msg("Program Is not called By CPI")]
+    #[msg("Program is not called By CPI")]
     InvalidCall,
 }

@@ -201,6 +201,7 @@ describe("candidate_staking", () => {
 
   let jobAdId = uuidv4();
   let applicationId = uuidv4();
+  console.log(jobAdId, applicationId)
 
   // successfull uids
   // const jobAdId = "cd03097e-63a3-4ad7-b1ae-a9d8748d1e8b"
@@ -213,12 +214,19 @@ describe("candidate_staking", () => {
   // jobAdId = jobAdId.replaceAll('-','');
   // applicationId = applicationId.replaceAll('-','');
 
-  it("Initializing General Program", async () => {
+  const getGeneralPDA = async() => {
     const [generalPDA, generalBump] =
-      await anchor.web3.PublicKey.findProgramAddress(
-        [Buffer.from("general")],
-        generalProgram.programId
-      );
+    await anchor.web3.PublicKey.findProgramAddress(
+      [Buffer.from("general")],
+      generalProgram.programId
+    ); 
+
+    return [generalPDA, generalBump]
+  }
+
+  it("Initializing General Program", async () => {
+
+    const [generalPDA, generalBump] = await getGeneralPDA();
 
     try {
       const tx = await generalProgram.methods

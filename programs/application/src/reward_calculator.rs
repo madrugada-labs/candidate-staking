@@ -90,7 +90,8 @@ mod test {
             status: JobStatus::Pending,
             staked_amount,
             max_allowed_staked,
-            total_reward_amount
+            total_reward_amount,
+            update_reward_value_in_job: false 
         }
     }
 
