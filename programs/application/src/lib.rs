@@ -15,6 +15,9 @@ const APPLICATION_SEED: &'static [u8] = b"application";
 const GENERAL_SEED: &'static [u8] = b"general";
 const JOB_SEED: &'static [u8] = b"jobfactory";
 
+const CANDIDATE_STAKING_PROGRAM_ID: &'static str = "BF1jhf5eA5X1Tu8JByv8htnkUaG6WzmYEMLx2kbZ7YiW";
+
+
 #[program]
 pub mod application {
     use super::*;
@@ -69,15 +72,13 @@ pub mod application {
 
     pub fn update_stake_amount(ctx: Context<UpdateStakeAmount>, _application_id: String, _application_bump: u8, stake_amount: u32, reward_amount: u32) -> Result<()> {
         msg!("cpi call is made yippee");
-        // TODO(dhruv):can we move this into a const static global variable? So we avoid allocation on every instruction
-        let candidate_staking_program_id: &str = "BF1jhf5eA5X1Tu8JByv8htnkUaG6WzmYEMLx2kbZ7YiW";
 
         let ixns = ctx.accounts.instruction.to_account_info();
         let current_index = tx_instructions::load_current_index_checked(&ixns)? as usize;
         let current_ixn = tx_instructions::load_instruction_at_checked(current_index, &ixns)?;
 
         msg!("Current program ID: {} application program ID: {}", current_ixn.program_id, *ctx.program_id);
-        if current_ixn.program_id.to_string() != candidate_staking_program_id {
+        if current_ixn.program_id.to_string() != CANDIDATE_STAKING_PROGRAM_ID {
             return Err(error!(ErrorCode::InvalidCall));
         }
         else {
