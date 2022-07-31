@@ -65,10 +65,9 @@ pub mod candidate_staking {
 
                 let reward_calculator = RewardCalculator::new(application_parameter.as_ref());
 
-                // TODO: upgrade this with safe operations (like checked_add)
-                ctx.accounts.base_account.staked_amount += amount;
-                ctx.accounts.base_account.reward_amount +=
-                    reward_calculator.calculate_reward(amount)?;
+                ctx.accounts.base_account.staked_amount.checked_add(amount).ok_or_else(|| ErrorCode::StakeAmountOverflow)?;
+                let reward_amount = reward_calculator.calculate_reward(amount)?;
+                ctx.accounts.base_account.reward_amount.checked_add(reward_amount).ok_or_else(|| ErrorCode::RewardAmountOverflow)?;
 
                 let authority_key = ctx.accounts.authority.key();
 
@@ -351,4 +350,8 @@ pub enum ErrorCode {
     StatusPending,
     #[msg("The staked application is selected but u would have to wait before u can withdraw")]
     SelectedButCantTransfer,
+    #[msg("Stake amount overflow")]
+    StakeAmountOverflow,
+    #[msg("Reward amount overflow")]
+    RewardAmountOverflow,
 }

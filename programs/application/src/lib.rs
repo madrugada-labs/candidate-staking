@@ -84,9 +84,8 @@ pub mod application {
         else {
            let parameters = &mut ctx.accounts.base_account;
            msg!("{}", parameters.staked_amount);
-           // TODO(dhruv): here you'll need to use safe operations (.add_checked(...))
-           parameters.staked_amount += stake_amount; 
-           parameters.total_reward_amount += reward_amount;
+           parameters.staked_amount.checked_add(stake_amount).ok_or_else(|| ErrorCode::StakeAmountOverflow)?; 
+           parameters.total_reward_amount.checked_add(reward_amount).ok_or_else(|| ErrorCode::TotalRewardAmountOverflow)?;
         }
         Ok(())
     }
@@ -179,4 +178,6 @@ pub enum ErrorCode {
     InvalidCall,
     #[msg("Stake amount overflow")]
     StakeAmountOverflow,
+    #[msg("Total reward amount overflow")]
+    TotalRewardAmountOverflow,
 }

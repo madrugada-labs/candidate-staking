@@ -55,7 +55,7 @@ pub mod job {
             let parameters = &mut ctx.accounts.job_account;
 
             // TODO(dhruv): safe opertion
-            parameters.total_reward_to_be_given += reward_amount;
+            parameters.total_reward_to_be_given.checked_add(reward_amount).ok_or_else(|| ErrorCode::TotalRewardAmountOverflow);
         }
 
         Ok(())
@@ -188,4 +188,6 @@ pub enum ErrorCode {
     InvalidAuthority,
     #[msg("You dont have the permission to call this")]
     InvalidCall,
+    #[msg("Total reward amount overflow")]
+    TotalRewardAmountOverflow,
 }
