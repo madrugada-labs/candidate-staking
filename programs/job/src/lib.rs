@@ -54,6 +54,7 @@ pub mod job {
         } else {
             let parameters = &mut ctx.accounts.job_account;
 
+            // TODO(dhruv): safe opertion
             parameters.total_reward_to_be_given += reward_amount;
         }
 
@@ -109,8 +110,6 @@ pub mod job {
 
             let amount_in_64 = amount as u64;
 
-            // The `?` at the end will cause the function to return early in case of an error.
-            // This pattern is common in Rust.
             anchor_spl::token::transfer(cpi_ctx, amount_in_64)?;
 
             msg!("transfer happened");
