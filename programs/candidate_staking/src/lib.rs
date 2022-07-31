@@ -3,10 +3,11 @@ use anchor_spl::token::{Mint, Token, TokenAccount, Transfer};
 use application::cpi::accounts::UpdateStakeAmount;
 use job::cpi::accounts::UnstakeToken;
 use application::{self, ApplicationParameter, JobStatus, RewardCalculator};
+use application::program::Application;
 use general::program::General;
 use general::{self, GeneralParameter};
 use job::program::Job;
-use job::{self};
+use job::{self, JobStakingParameter};
 
 declare_id!("BF1jhf5eA5X1Tu8JByv8htnkUaG6WzmYEMLx2kbZ7YiW");
 
@@ -14,6 +15,7 @@ const CANDIDATE_SEED: &'static [u8] = b"candidate";
 const APPLICATION_SEED: &'static [u8] = b"application";
 const GENERAL_SEED: &'static [u8] = b"general";
 const WALLET_SEED: &'static [u8] = b"wallet";
+const JOB_SEED: &'static [u8] = b"jobfactory";
 
 #[program]
 pub mod candidate_staking {
