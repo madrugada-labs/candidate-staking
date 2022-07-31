@@ -69,6 +69,7 @@ pub mod application {
 
     pub fn update_stake_amount(ctx: Context<UpdateStakeAmount>, _application_id: String, _application_bump: u8, stake_amount: u32, reward_amount: u32) -> Result<()> {
         msg!("cpi call is made yippee");
+        // TODO(dhruv):can we move this into a const static global variable? So we avoid allocation on every instruction
         let candidate_staking_program_id: &str = "BF1jhf5eA5X1Tu8JByv8htnkUaG6WzmYEMLx2kbZ7YiW";
 
         let ixns = ctx.accounts.instruction.to_account_info();
@@ -82,6 +83,7 @@ pub mod application {
         else {
            let parameters = &mut ctx.accounts.base_account;
            msg!("{}", parameters.staked_amount);
+           // TODO(dhruv): here you'll need to use safe operations (.add_checked(...))
            parameters.staked_amount += stake_amount; 
            parameters.total_reward_amount += reward_amount;
         }
