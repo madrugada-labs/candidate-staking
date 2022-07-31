@@ -70,16 +70,6 @@ pub mod candidate_staking {
                 ctx.accounts.base_account.reward_amount +=
                     reward_calculator.calculate_reward(amount)?;
 
-                // making cpi call to application program to update the staked amount
-
-                // let application_bump_vector = application_bump.to_le_bytes();
-                // let inner = vec![
-                //     APPLICATION_SEED,
-                //     application_id.as_bytes()[..18].as_ref(),
-                //     application_id.as_bytes()[18..].as_ref(),
-                //     application_bump_vector.as_ref(),
-                // ];
-                // let outer = vec![inner.as_slice()];
                 let authority_key = ctx.accounts.authority.key();
 
                 let bump_vector = base_bump.to_le_bytes();
@@ -122,8 +112,6 @@ pub mod candidate_staking {
 
                 let amount_in_32 = amount as u64;
 
-                // The `?` at the end will cause the function to return early in case of an error.
-                // This pattern is common in Rust.
                 anchor_spl::token::transfer(cpi_ctx, amount_in_32)?;
 
                 msg!("token is deposited");
