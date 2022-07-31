@@ -84,8 +84,8 @@ pub mod application {
         else {
            let parameters = &mut ctx.accounts.base_account;
            msg!("{}", parameters.staked_amount);
-           parameters.staked_amount.checked_add(stake_amount).ok_or_else(|| ErrorCode::StakeAmountOverflow)?; 
-           parameters.total_reward_amount.checked_add(reward_amount).ok_or_else(|| ErrorCode::TotalRewardAmountOverflow)?;
+           parameters.staked_amount = parameters.staked_amount.checked_add(stake_amount).ok_or_else(|| ErrorCode::StakeAmountOverflow)?; 
+           parameters.total_reward_amount = parameters.total_reward_amount.checked_add(reward_amount).ok_or_else(|| ErrorCode::TotalRewardAmountOverflow)?;
         }
         Ok(())
     }

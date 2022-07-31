@@ -843,7 +843,8 @@ describe("candidate_staking", () => {
       casTokenAccount
     );
 
-    await candidateStakingProgram.methods
+    try {
+      await candidateStakingProgram.methods
       .unstake(
         candidateBump,
         applicationBump,
@@ -869,6 +870,10 @@ describe("candidate_staking", () => {
       })
       .signers([cas])
       .rpc();
+    } catch (error) {
+     console.log(error) 
+    }
+    
 
     _casTokenWallet = await spl.getAccount(
       provider.connection,

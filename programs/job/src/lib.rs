@@ -9,6 +9,10 @@ declare_id!("69dteSt8rK7HLvku1kqXhw4UsmanCGa8sDcqxgeeYUS8");
 const JOB_FACTORY_SEED: &'static [u8] = b"jobfactory";
 const GENERAL_SEED: &'static [u8] = b"general";
 
+const CANDIDATE_STAKING_PROGRAM_ID: &'static str = "BF1jhf5eA5X1Tu8JByv8htnkUaG6WzmYEMLx2kbZ7YiW";
+const APPLICATION_PROGRAM_ID: &'static str = "Fxe3yzwDaKnK8e2Mj4CqrK2YvTbFaUhqmnuTyH1dJWcX";
+
+
 #[program]
 pub mod job {
     use super::*;
@@ -35,7 +39,6 @@ pub mod job {
         _job_bump: u8,
         reward_amount: u32,
     ) -> Result<()> {
-        let application_program_id: &str = "Fxe3yzwDaKnK8e2Mj4CqrK2YvTbFaUhqmnuTyH1dJWcX";
 
         let ixns = ctx.accounts.instructions.to_account_info();
         let current_index = tx_instructions::load_current_index_checked(&ixns)? as usize;
@@ -49,13 +52,12 @@ pub mod job {
 
         // let candidate_parameters = &mut ctx.accounts.candidate_account;
 
-        if application_program_id != current_ixn.program_id.to_string() {
+        if APPLICATION_PROGRAM_ID != current_ixn.program_id.to_string() {
             return Err(error!(ErrorCode::InvalidCall));
         } else {
             let parameters = &mut ctx.accounts.job_account;
 
-            // TODO(dhruv): safe opertion
-            parameters.total_reward_to_be_given.checked_add(reward_amount).ok_or_else(|| ErrorCode::TotalRewardAmountOverflow);
+            parameters.total_reward_to_be_given = parameters.total_reward_to_be_given.checked_add(reward_amount).ok_or_else(|| ErrorCode::TotalRewardAmountOverflow)?;
         }
 
         Ok(())
@@ -70,8 +72,6 @@ pub mod job {
     ) -> Result<()> {
         msg!("CPI call happening successfully");
 
-        let candidate_staking_program_id: &str = "BF1jhf5eA5X1Tu8JByv8htnkUaG6WzmYEMLx2kbZ7YiW";
-
         let ixns = ctx.accounts.instructions.to_account_info();
         let current_index = tx_instructions::load_current_index_checked(&ixns)? as usize;
         let current_ixn = tx_instructions::load_instruction_at_checked(current_index, &ixns)?;
@@ -82,9 +82,7 @@ pub mod job {
             *ctx.program_id
         );
 
-        // let candidate_parameters = &mut ctx.accounts.candidate_account;
-
-        if candidate_staking_program_id != current_ixn.program_id.to_string() {
+        if CANDIDATE_STAKING_PROGRAM_ID != current_ixn.program_id.to_string() {
             return Err(error!(ErrorCode::InvalidCall));
         } else {
             let bump_vector = job_bump.to_le_bytes();
@@ -143,8 +141,8 @@ pub struct UnstakeToken<'info> {
     pub escrow_wallet_state: Account<'info, TokenAccount>,
     #[account(
         mut,
-        // constraint=wallet_to_withdraw_from.owner == authority.key(),
-        // constraint=wallet_to_withdraw_from.mint == token_mint.key()
+        constraint=wallet_to_deposit_to.owner == authority.key(),
+        constraint=wallet_to_deposit_to.mint == token_mint.key()
     )]
     pub wallet_to_deposit_to: Account<'info, TokenAccount>,
     pub system_program: Program<'info, System>,

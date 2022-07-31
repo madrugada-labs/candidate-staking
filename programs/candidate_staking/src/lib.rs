@@ -48,6 +48,7 @@ pub mod candidate_staking {
     ) -> Result<()> {
         let general_parameter = &mut ctx.accounts.general_account;
         let application_parameter = &mut ctx.accounts.application_account;
+        let candidate_parameter = &mut ctx.accounts.base_account;
 
         if general_parameter.mint == ctx.accounts.token_mint.key() {
             msg!("Mint is matching");
@@ -65,9 +66,9 @@ pub mod candidate_staking {
 
                 let reward_calculator = RewardCalculator::new(application_parameter.as_ref());
 
-                ctx.accounts.base_account.staked_amount.checked_add(amount).ok_or_else(|| ErrorCode::StakeAmountOverflow)?;
+                candidate_parameter.staked_amount = candidate_parameter.staked_amount.checked_add(amount).ok_or_else(|| ErrorCode::StakeAmountOverflow)?;
                 let reward_amount = reward_calculator.calculate_reward(amount)?;
-                ctx.accounts.base_account.reward_amount.checked_add(reward_amount).ok_or_else(|| ErrorCode::RewardAmountOverflow)?;
+                candidate_parameter.reward_amount = candidate_parameter.reward_amount.checked_add(reward_amount).ok_or_else(|| ErrorCode::RewardAmountOverflow)?;
 
                 let authority_key = ctx.accounts.authority.key();
 
@@ -182,6 +183,7 @@ pub mod candidate_staking {
             }
             JobStatus::Rejected => {
                 msg!("you are rejected");
+                msg!("{}", ctx.accounts.base_account.staked_amount);
                 let authority_key = ctx.accounts.authority.key();
 
                 let bump_vector = base_bump.to_le_bytes();
@@ -277,8 +279,8 @@ pub struct Stake<'info> {
     pub escrow_wallet_state: Account<'info, TokenAccount>,
     #[account(
         mut,
-        // constraint=wallet_to_withdraw_from.owner == authority.key(),
-        // constraint=wallet_to_withdraw_from.mint == token_mint.key()
+        constraint=wallet_to_withdraw_from.owner == authority.key(),
+        constraint=wallet_to_withdraw_from.mint == token_mint.key()
     )]
     pub wallet_to_withdraw_from: Account<'info, TokenAccount>,
     pub system_program: Program<'info, System>,
@@ -314,8 +316,8 @@ pub struct Unstake<'info> {
     pub escrow_wallet_state: Account<'info, TokenAccount>,
     #[account(
         mut,
-        // constraint=wallet_to_withdraw_from.owner == authority.key(),
-        // constraint=wallet_to_withdraw_from.mint == token_mint.key()
+        constraint=wallet_to_deposit_to.owner == authority.key(),
+        constraint=wallet_to_deposit_to.mint == token_mint.key()
     )]
     pub wallet_to_deposit_to: Account<'info, TokenAccount>,
     pub job_program: Program<'info, Job>,

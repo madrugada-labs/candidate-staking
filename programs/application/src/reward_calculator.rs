@@ -31,6 +31,7 @@ impl<'a> RewardCalculator<'a> {
         let available_amount_to_stake = max_allowed_staked
             .checked_sub(w)
             .ok_or_else(|| ErrorCode::AmountUnderflow)?;
+        msg!("{}", available_amount_to_stake);
         if self.application_parameters.status != JobStatus::Pending {
             return Err(error!(ErrorCode::StatusNotPending));
         }
