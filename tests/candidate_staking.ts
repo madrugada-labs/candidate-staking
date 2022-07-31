@@ -480,8 +480,8 @@ describe("candidate_staking", () => {
         .rpc();
 
       } catch (error) {
-        console.log(error); // TODO(dhruv): can this error happen? -> This wont happen, but i need to add some more cases where the error can.
-        assert(true, false); // TODO(dhruv) then I'm adding this
+        console.log(error);
+        throw("this should not happen");
     }
 
     const state =
