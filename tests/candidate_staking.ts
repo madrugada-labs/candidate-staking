@@ -709,7 +709,7 @@ describe("candidate_staking", () => {
         .signers([cas])
         .rpc();
     } catch (error) {
-      assert.equal(error.error.errorCode.code, "RequireViolated");
+      assert.equal(error.error.errorCode.code, "StatusNotPending");
     }
   });
 
