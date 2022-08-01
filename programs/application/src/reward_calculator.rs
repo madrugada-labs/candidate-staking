@@ -70,8 +70,7 @@ impl<'a> RewardCalculator<'a> {
 
         let a = 3;
         let b = 2;
-        let c = 1;
-        Ok(k_tier_1 * a + k_tier_2 * b + k_tier_3 * c)
+        Ok(k_tier_1 * a + k_tier_2 * b + k_tier_3 * 3 / 2)
     }
 }
 
@@ -132,7 +131,7 @@ mod test {
         let reward_calculator = RewardCalculator {
             application_parameters: &application_parameters,
         };
-        assert_eq!(reward_calculator.calculate_reward(10).unwrap(), 10);
+        assert_eq!(reward_calculator.calculate_reward(10).unwrap(), 15);
     }
 
     #[test]
@@ -150,7 +149,10 @@ mod test {
         let reward_calculator = RewardCalculator {
             application_parameters: &application_parameters,
         };
-        assert_eq!(reward_calculator.calculate_reward(40).unwrap(), 0 + 32 + 24);
+        assert_eq!(
+            reward_calculator.calculate_reward(40).unwrap(),
+            0 + 16 * 2 + 24 * 3 / 2
+        );
     }
 
     #[test]
@@ -161,7 +163,7 @@ mod test {
         };
         assert_eq!(
             reward_calculator.calculate_reward(100).unwrap(),
-            99 + 66 + 34
+            33 * 3 + 33 * 2 + 34 * 3 / 2
         );
     }
 
