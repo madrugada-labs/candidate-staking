@@ -1332,17 +1332,17 @@ describe("candidate_staking", () => {
     const tier1AndTier2Amount = 5000; // 3333 would be in tier 1 and 1667 would be in tier 2
     const tier1AndTier2Reward = 13333; // the reward for tier1 and tier 2
 
-    const all3TierAmount = 8000; // 3333 would be in tier 1, the next 3333 would be in tier 2 and 1333 would be in tier 3
-    const all3TierReward = 17999; // The reward in all 3 tiers
+    const all3TierAmount = 8000; // 3333 would be in tier 1, the next 3333 would be in tier 2 and 1334 would be in tier 3
+    const all3TierReward = 18666; // The reward in all 3 tiers
 
     const onlyTier2Amount = 3000; // There will already be 3333 staked so this amount lies in tier 2 only
     const onlyTier2Reward = 6000; // the reward in tier 2 only
 
-    const tier2AndTier3Amount = 5000; // 3333 already in tier 1, so 3333 in tier 2 and the rest 1333 in tier 3
-    const tier2AndTier3Reward = 8333; // the reward in tier2 and tier 3
+    const tier2AndTier3Amount = 5000; // 3333 already in tier 1, so 3333 in tier 2 and the rest 1334 in tier 3
+    const tier2AndTier3Reward = 9166; // the reward in tier2 and tier 3
 
     const onlyTier3Amount = 3000; // There will be 3333 already in tier 1, 3333 in tier2 so this remaining amount would be in tier 3 entirely
-    const onlyTier3Reward = 3000; // the reward
+    const onlyTier3Reward = 4500; // the reward
 
     const tier1 = 3333;
     const tier2 = 3333;
