@@ -21,7 +21,7 @@ pub mod job {
         ctx: Context<Initialize>,
         job_ad_id: String,
         _general_bump: u8,
-        max_amount_per_application: u32,
+        max_amount_per_application: u64,
     ) -> Result<()> {
         let parameters = &mut ctx.accounts.base_account;
 
@@ -37,7 +37,7 @@ pub mod job {
         ctx: Context<UpdateRewards>,
         _job_ad_id: String,
         _job_bump: u8,
-        reward_amount: u32,
+        reward_amount: u64,
     ) -> Result<()> {
 
         let ixns = ctx.accounts.instructions.to_account_info();
@@ -68,7 +68,7 @@ pub mod job {
         job_ad_id: String,
         job_bump: u8,
         _wallet_bump: u8,
-        amount: u32,
+        amount: u64,
     ) -> Result<()> {
         msg!("CPI call happening successfully");
 
@@ -119,7 +119,7 @@ pub mod job {
 #[derive(Accounts)]
 #[instruction(job_ad_id: String, general_bump: u8)]
 pub struct Initialize<'info> {
-    #[account(init, payer = authority, seeds = [JOB_FACTORY_SEED, job_ad_id.as_bytes()[..18].as_ref(), job_ad_id.as_bytes()[18..].as_ref()], bump, constraint = authority.key() == general_account.authority @ ErrorCode::InvalidAuthority, space = 4 + 32 + 40 + 4 + 8 )]
+    #[account(init, payer = authority, seeds = [JOB_FACTORY_SEED, job_ad_id.as_bytes()[..18].as_ref(), job_ad_id.as_bytes()[18..].as_ref()], bump, constraint = authority.key() == general_account.authority @ ErrorCode::InvalidAuthority, space = 8 + 32 + 40 + 8 + 8 )]
     pub base_account: Account<'info, JobStakingParameter>,
     #[account(mut, seeds = [GENERAL_SEED], bump = general_bump, seeds::program = general_program.key())]
     pub general_account: Account<'info, GeneralParameter>,
@@ -169,15 +169,15 @@ pub struct UpdateRewards<'info> {
 pub struct JobStakingParameter {
     pub authority: Pubkey,               // 32 bytes
     pub job_ad_id: String,               // 40 bytes
-    pub max_amount_per_application: u32, // 4 bytes
-    pub total_reward_to_be_given: u32,   // 4 bytes
+    pub max_amount_per_application: u64, // 8 bytes
+    pub total_reward_to_be_given: u64,   // 8 bytes
 }
 
 #[account]
 pub struct CandidateParameter {
     pub authority: Pubkey,  // 32 bytes
-    pub staked_amount: u32, // 4 bytes
-    pub reward_amount: u32, // 4 bytes
+    pub staked_amount: u64, // 8 bytes
+    pub reward_amount: u64, // 8 bytes
 }
 
 #[error_code]

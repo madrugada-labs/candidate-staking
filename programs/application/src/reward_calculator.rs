@@ -22,9 +22,9 @@ impl<'a> RewardCalculator<'a> {
         }
     }
 
-    pub fn calculate_reward(&self, k: u32) -> Result<u32> {
+    pub fn calculate_reward(&self, k: u64) -> Result<u64> {
         // for simplicity -> k: amount_pledged_to_stake
-        let mut k = k;
+        let mut k: u64 = k;
         let w = self.application_parameters.staked_amount;
         let max_allowed_staked = self.application_parameters.max_allowed_staked;
 
@@ -93,9 +93,9 @@ mod test {
     use super::*;
 
     fn new_application_parameters(
-        staked_amount: u32,
-        max_allowed_staked: u32,
-        total_reward_amount: u32,
+        staked_amount: u64,
+        max_allowed_staked: u64,
+        total_reward_amount: u64,
     ) -> ApplicationParameter {
         ApplicationParameter {
             authority: Pubkey::new_from_array([0; 32]),

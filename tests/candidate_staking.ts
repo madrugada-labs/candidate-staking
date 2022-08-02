@@ -338,7 +338,7 @@ describe("candidate_staking", () => {
     // creating job by the person who is not the authority which should throw an error
     try {
       const tx = await jobProgram.methods
-        .initialize(jobAdId, generalBump, maxAmountPerApplication)
+        .initialize(jobAdId, generalBump, new anchor.BN(maxAmountPerApplication))
         .accounts({
           baseAccount: jobFactoryPDA,
           authority: alice.publicKey,
@@ -355,7 +355,7 @@ describe("candidate_staking", () => {
     }
 
     const tx = await jobProgram.methods
-      .initialize(jobAdId, generalBump, maxAmountPerApplication)
+      .initialize(jobAdId, generalBump, new anchor.BN(maxAmountPerApplication))
       .accounts({
         baseAccount: jobFactoryPDA,
         authority: admin.publicKey,
@@ -369,7 +369,7 @@ describe("candidate_staking", () => {
     // Checks if the job can be created again. Since the PDA would be the same and it is already initialized, it would throw an error
     try {
       const tx = await jobProgram.methods
-        .initialize(jobAdId, generalBump, maxAmountPerApplication)
+        .initialize(jobAdId, generalBump, new anchor.BN(maxAmountPerApplication))
         .accounts({
           baseAccount: jobFactoryPDA,
           authority: admin.publicKey,
@@ -397,8 +397,9 @@ describe("candidate_staking", () => {
       admin.publicKey.toBase58(),
       jobFactoryState.authority.toBase58()
     );
-    assert.strictEqual(
-      maxAmountPerApplication,
+
+    assert.equal(
+      new anchor.BN(maxAmountPerApplication),
       jobFactoryState.maxAmountPerApplication
     );
   });
@@ -417,7 +418,7 @@ describe("candidate_staking", () => {
           jobAdId,
           applicationId,
           generalBump,
-          maxAmountPerApplication
+          new anchor.BN(maxAmountPerApplication)
         )
         .accounts({
           baseAccount: applicationPDA,
@@ -435,7 +436,7 @@ describe("candidate_staking", () => {
     }
 
     let tx = await applicationProgram.methods
-      .initialize(jobAdId, applicationId, generalBump, maxAmountPerApplication)
+      .initialize(jobAdId, applicationId, generalBump, new anchor.BN(maxAmountPerApplication))
       .accounts({
         baseAccount: applicationPDA,
         authority: admin.publicKey,
@@ -453,7 +454,7 @@ describe("candidate_staking", () => {
           jobAdId,
           applicationId,
           generalBump,
-          maxAmountPerApplication
+          new anchor.BN(maxAmountPerApplication)
         )
         .accounts({
           baseAccount: applicationPDA,
@@ -563,7 +564,7 @@ describe("candidate_staking", () => {
           applicationBump,
           jobBump,
           walletBump,
-          stakeAmount
+          new anchor.BN(stakeAmount)
         )
         .accounts({
           baseAccount: candidatePDA,
@@ -637,7 +638,7 @@ describe("candidate_staking", () => {
           applicationBump,
           jobFactoryBump,
           walletBump,
-          stakeAmount
+          new anchor.BN(stakeAmount)
         )
         .accounts({
           baseAccount: candidatePDA,
@@ -675,7 +676,7 @@ describe("candidate_staking", () => {
           applicationBump,
           jobBump,
           walletBump,
-          stakeAmount
+          new anchor.BN(stakeAmount)
         )
         .accounts({
           baseAccount: candidatePDA,
@@ -723,7 +724,7 @@ describe("candidate_staking", () => {
           applicationBump,
           jobFactoryBump,
           walletBump,
-          stakeAmount
+          new anchor.BN(stakeAmount)
         )
         .accounts({
           baseAccount: candidatePDA,
@@ -870,7 +871,7 @@ describe("candidate_staking", () => {
           applicationBump,
           jobBump,
           walletBump,
-          stakeAmount
+          new anchor.BN(stakeAmount)
         )
         .accounts({
           baseAccount: candidatePDA,
@@ -914,7 +915,7 @@ describe("candidate_staking", () => {
       await candidateStakingProgram.account.candidateParameter.fetch(
         candidatePDA
       );
-    const reward = candidateState.rewardAmount;
+    const reward = candidateState.rewardAmount.toNumber();
 
     //changing the application state to selected
 
@@ -986,7 +987,7 @@ describe("candidate_staking", () => {
 
     try {
       const tx1 = await jobProgram.methods
-        .unstake(jobAdId, jobFactoryBump, walletBump, 10)
+        .unstake(jobAdId, jobFactoryBump, walletBump, new anchor.BN(10))
         .accounts({
           jobAccount: jobFactoryPDA,
           tokenMint: USDCMint,
@@ -1144,7 +1145,7 @@ describe("candidate_staking", () => {
     const { walletPDA, walletBump } = await getWalletPDA(jobAdId);
     try {
       await jobProgram.methods
-        .initialize(jobAdId, generalBump, maxAmountPerApplication)
+        .initialize(jobAdId, generalBump, new anchor.BN(maxAmountPerApplication))
         .accounts({
           baseAccount: jobFactoryPDA,
           authority: admin.publicKey,
@@ -1161,7 +1162,7 @@ describe("candidate_staking", () => {
           jobAdId,
           applicationId,
           generalBump,
-          maxAmountPerApplication
+          new anchor.BN(maxAmountPerApplication)
         )
         .accounts({
           baseAccount: applicationPDA,
@@ -1222,7 +1223,7 @@ describe("candidate_staking", () => {
         applicationBump,
         jobFactoryBump,
         walletBump,
-        amountToBeStaked
+        new anchor.BN(amountToBeStaked)
       )
       .accounts({
         baseAccount: candidatePDA,

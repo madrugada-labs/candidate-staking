@@ -44,7 +44,7 @@ pub mod candidate_staking {
         application_bump: u8,
         _job_bump: u8,
         _wallet_bump: u8,
-        amount: u32,
+        amount: u64,
     ) -> Result<()> {
         let general_parameter = &mut ctx.accounts.general_account;
         let application_parameter = &mut ctx.accounts.application_account;
@@ -110,9 +110,8 @@ pub mod candidate_staking {
                     outer.as_slice(), //signer PDA
                 );
 
-                let amount_in_32 = amount as u64;
 
-                anchor_spl::token::transfer(cpi_ctx, amount_in_32)?;
+                anchor_spl::token::transfer(cpi_ctx, amount)?;
 
                 msg!("token is deposited");
             } else {
@@ -227,7 +226,7 @@ pub mod candidate_staking {
 #[derive(Accounts)]
 #[instruction(job_ad_id: String, application_id: String, job_bump: u8)]
 pub struct Initialize<'info> {
-    #[account(init, payer = authority, seeds = [CANDIDATE_SEED, application_id.as_bytes()[..18].as_ref(), application_id.as_bytes()[18..].as_ref(), authority.key().as_ref()], bump, space = 4 + 4 + 32 + 8 )]
+    #[account(init, payer = authority, seeds = [CANDIDATE_SEED, application_id.as_bytes()[..18].as_ref(), application_id.as_bytes()[18..].as_ref(), authority.key().as_ref()], bump, space = 8 + 8 + 32 + 8 )]
     pub base_account: Account<'info, CandidateParameter>,
     #[account(mut, seeds = [JOB_SEED, job_ad_id.as_bytes()[..18].as_ref(), job_ad_id.as_bytes()[18..].as_ref()], bump = job_bump, seeds::program = job_program.key())]
     pub job_account: Box<Account<'info, JobStakingParameter>>,
@@ -331,8 +330,8 @@ pub struct Unstake<'info> {
 #[account]
 pub struct CandidateParameter {
     pub authority: Pubkey,  // 32 bytes
-    pub staked_amount: u32, // 4 bytes
-    pub reward_amount: u32, // 4 bytes
+    pub staked_amount: u64, // 8 bytes
+    pub reward_amount: u64, // 8 bytes
 }
 
 impl CandidateParameter {

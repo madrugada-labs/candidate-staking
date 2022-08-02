@@ -27,7 +27,7 @@ pub mod application {
         _job_ad_id: String,
         _application_id: String,
         _general_bump: u8,
-        max_allowed_stake: u32
+        max_allowed_stake: u64
     ) -> Result<()> {
 
         let parameter = &mut ctx.accounts.base_account;
@@ -70,7 +70,7 @@ pub mod application {
         Ok(())
     }
 
-    pub fn update_stake_amount(ctx: Context<UpdateStakeAmount>, _application_id: String, _application_bump: u8, stake_amount: u32, reward_amount: u32) -> Result<()> {
+    pub fn update_stake_amount(ctx: Context<UpdateStakeAmount>, _application_id: String, _application_bump: u8, stake_amount: u64, reward_amount: u64) -> Result<()> {
         msg!("cpi call is made yippee");
 
         let ixns = ctx.accounts.instruction.to_account_info();
@@ -101,7 +101,7 @@ pub struct Initialize<'info> {
         seeds = [APPLICATION_SEED, application_id.as_bytes()[..18].as_ref(), application_id.as_bytes()[18..].as_ref()],
         bump, 
         constraint = authority.key() == general_account.authority @ ErrorCode::InvalidAuthority,
-        space = 8 + 32 + 1 + 4 + 4 + 4 + 1
+        space = 8 + 32 + 1 + 8 + 8 + 8 + 1
     )]
     pub base_account: Account<'info, ApplicationParameter>,
     #[account(mut, seeds = [GENERAL_SEED], bump = general_bump, seeds::program = general_program.key())]
@@ -153,14 +153,14 @@ pub enum JobStatus {
 pub struct ApplicationParameter {
     pub authority: Pubkey,       // 32 bytes
     pub status: JobStatus,       // 1 byte
-    pub staked_amount: u32,      // 4 bytes
-    pub max_allowed_staked: u32, // 4 bytes
-    pub total_reward_amount: u32, // 4 bytes
+    pub staked_amount: u64,      // 8 bytes
+    pub max_allowed_staked: u64, // 8 bytes
+    pub total_reward_amount: u64, // 8 bytes
     pub update_reward_value_in_job: bool // 1 byte
 }
 
 impl ApplicationParameter {
-    pub fn reset(&mut self, authority: Pubkey, max_allowed_staked: u32) {
+    pub fn reset(&mut self, authority: Pubkey, max_allowed_staked: u64) {
         self.authority = authority;
         self.status = JobStatus::Pending;
         self.staked_amount = 0;
