@@ -112,7 +112,6 @@ pub mod candidate_staking {
 
 
                 anchor_spl::token::transfer(cpi_ctx, amount)?;
-
                 msg!("token is deposited");
             } else {
                 return Err(error!(ErrorCode::MaxAmountExceeded));
@@ -134,6 +133,11 @@ pub mod candidate_staking {
         job_bump: u8,
     ) -> Result<()> {
         let application = &mut ctx.accounts.application_account;
+        let candidate_parameters = &mut ctx.accounts.base_account;
+
+        if candidate_parameters.staked_amount == 0 && candidate_parameters.reward_amount == 0 {
+            return Err(error!(ErrorCode::AlreadyUnstaked));
+        }
 
         match application.status {
             JobStatus::Pending => {
@@ -177,12 +181,14 @@ pub mod candidate_staking {
                     job_ad_id,
                     job_bump,
                     wallet_bump,
-                    ctx.accounts.base_account.reward_amount,
+                    candidate_parameters.reward_amount,
                 )?;
+
+                candidate_parameters.reset_after_unstake();
             }
             JobStatus::Rejected => {
                 msg!("you are rejected");
-                msg!("{}", ctx.accounts.base_account.staked_amount);
+                msg!("{}", candidate_parameters.staked_amount);
                 let authority_key = ctx.accounts.authority.key();
 
                 let bump_vector = base_bump.to_le_bytes();
@@ -214,8 +220,9 @@ pub mod candidate_staking {
                     job_ad_id,
                     job_bump,
                     wallet_bump,
-                    ctx.accounts.base_account.staked_amount,
+                    candidate_parameters.staked_amount,
                 )?;
+                candidate_parameters.reset_after_unstake();
             }
         }
 
@@ -338,6 +345,11 @@ impl CandidateParameter {
     pub fn reset(&mut self, authority: Pubkey) {
         self.authority = authority;
         self.staked_amount = 0;
+        self.reward_amount = 0;
+    }
+    pub fn reset_after_unstake(&mut self) {
+        self.staked_amount = 0;
+        self.reward_amount = 0;
     }
 }
 
@@ -355,4 +367,6 @@ pub enum ErrorCode {
     StakeAmountOverflow,
     #[msg("Reward amount overflow")]
     RewardAmountOverflow,
+    #[msg("You have already unstaked")]
+    AlreadyUnstaked
 }
