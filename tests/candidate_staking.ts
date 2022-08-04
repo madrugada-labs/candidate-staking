@@ -297,6 +297,36 @@ describe("candidate_staking", () => {
     return { walletPDA, walletBump };
   };
 
+  const changeApplicationStatus = async (
+    jobAdId: string,
+    applicationId: string,
+    status: any
+  ) => {
+    const { jobFactoryPDA, jobFactoryBump } = await getJobPDA(jobAdId);
+
+    const { applicationPDA, applicationBump } = await getApplicationPDA(
+      applicationId
+    );
+
+    const tx = await applicationProgram.methods
+      .updateStatus(
+        applicationId,
+        applicationBump,
+        jobAdId,
+        jobFactoryBump,
+        status
+      )
+      .accounts({
+        baseAccount: applicationPDA,
+        authority: admin.publicKey,
+        jobAccount: jobFactoryPDA,
+        jobProgram: jobProgram.programId,
+        instruction: anchor.web3.SYSVAR_INSTRUCTIONS_PUBKEY,
+      })
+      .signers([admin])
+      .rpc();
+  };
+
   const allProgramInitialize = async (
     jobAdId: string,
     applicationId: string,
@@ -436,7 +466,7 @@ describe("candidate_staking", () => {
     );
   };
 
-  const changeStatusAndUnstake = async (
+  const unstakeFunction = async (
     jobAdId,
     applicationId,
     user: anchor.web3.Keypair,
@@ -444,7 +474,7 @@ describe("candidate_staking", () => {
   ) => {
     const { candidatePDA, candidateBump } = await getCandidatePDA(
       applicationId,
-      alice.publicKey
+      user.publicKey
     );
 
     const { jobFactoryPDA, jobFactoryBump } = await getJobPDA(jobAdId);
@@ -453,27 +483,7 @@ describe("candidate_staking", () => {
       applicationId
     );
 
-    const { generalPDA, generalBump } = await getGeneralPDA();
-
     const { walletPDA, walletBump } = await getWalletPDA(jobAdId);
-
-    const tx = await applicationProgram.methods
-      .updateStatus(applicationId, applicationBump, jobAdId, jobFactoryBump, {
-        selected: {},
-      })
-      .accounts({
-        baseAccount: applicationPDA,
-        authority: admin.publicKey,
-        jobAccount: jobFactoryPDA,
-        jobProgram: jobProgram.programId,
-        instruction: anchor.web3.SYSVAR_INSTRUCTIONS_PUBKEY,
-      })
-      .signers([admin])
-      .rpc();
-
-    const state = await applicationProgram.account.applicationParameter.fetch(
-      applicationPDA
-    );
 
     await candidateStakingProgram.methods
       .unstake(
@@ -501,6 +511,16 @@ describe("candidate_staking", () => {
       })
       .signers([user])
       .rpc();
+  };
+
+  const changeStatusAndUnstake = async (
+    jobAdId,
+    applicationId,
+    user: anchor.web3.Keypair,
+    userTokenAccount: anchor.web3.PublicKey
+  ) => {
+    await changeApplicationStatus(jobAdId, applicationId, { selected: {} });
+    await unstakeFunction(jobAdId, applicationId, user, userTokenAccount);
   };
 
   it("Initializing General Program", async () => {
@@ -609,7 +629,7 @@ describe("candidate_staking", () => {
     assert.strictEqual(jobAdId, jobFactoryState.jobAdId);
 
     assert.strictEqual(
-      admin.publicKey.toBase58(), 
+      admin.publicKey.toBase58(),
       jobFactoryState.authority.toBase58()
     );
 
@@ -750,62 +770,19 @@ describe("candidate_staking", () => {
       cas.publicKey
     );
 
-    const { applicationPDA, applicationBump } = await getApplicationPDA(
-      applicationId
-    );
-
-    const [jobPDA, jobBump] = await anchor.web3.PublicKey.findProgramAddress(
-      [
-        Buffer.from("jobfactory"),
-        Buffer.from(jobAdId.substring(0, 18)),
-        Buffer.from(jobAdId.substring(18, 36)),
-      ],
-      jobProgram.programId
-    );
-
-    const { generalPDA, generalBump } = await getGeneralPDA();
-
-    const { walletPDA, walletBump } = await getWalletPDA(jobAdId);
-
-    const stakeAmountInBN = new anchor.BN(stakeAmount);
-
     let _casTokenWallet = await spl.getAccount(
       provider.connection,
       casTokenAccount
     );
 
     try {
-      // const tx = await candidateStakingProgram.methods
-      //   .stake(
-      //     jobAdId,
-      //     applicationId,
-      //     candidateBump,
-      //     generalBump,
-      //     applicationBump,
-      //     jobBump,
-      //     walletBump,
-      //     new anchor.BN(stakeAmount)
-      //   )
-      //   .accounts({
-      //     baseAccount: candidatePDA,
-      //     authority: cas.publicKey,
-      //     tokenMint: USDCMint,
-      //     generalAccount: generalPDA,
-      //     jobAccount: jobPDA,
-      //     applicationAccount: applicationPDA,
-      //     generalProgram: generalProgram.programId,
-      //     applicationProgram: applicationProgram.programId,
-      //     jobProgram: jobProgram.programId,
-      //     escrowWalletState: walletPDA,
-      //     walletToWithdrawFrom: casTokenAccount,
-      //     systemProgram: anchor.web3.SystemProgram.programId,
-      //     tokenProgram: spl.TOKEN_PROGRAM_ID,
-      //     rent: anchor.web3.SYSVAR_RENT_PUBKEY,
-      //     instruction: anchor.web3.SYSVAR_INSTRUCTIONS_PUBKEY,
-      //   })
-      //   .signers([cas]) // Cas is the person who is staking on the application.
-      //   .rpc();
-      await stakeAmountFunction(jobAdId, applicationId, stakeAmount, cas, casTokenAccount);
+      await stakeAmountFunction(
+        jobAdId,
+        applicationId,
+        stakeAmount,
+        cas,
+        casTokenAccount
+      );
     } catch (error) {
       console.log(error);
     }
@@ -814,7 +791,6 @@ describe("candidate_staking", () => {
       await candidateStakingProgram.account.candidateParameter.fetch(
         candidatePDA
       );
-    // console.log(state.rewardAmount, state.stakedAmount);
 
     _casTokenWallet = await spl.getAccount(
       provider.connection,
@@ -828,192 +804,59 @@ describe("candidate_staking", () => {
     const testApplicationId = uuidv4();
     const testJobId = uuidv4();
 
-    const { applicationPDA, applicationBump } = await getApplicationPDA(
-      testApplicationId
-    );
-    const { jobFactoryPDA, jobFactoryBump } = await getJobPDA(testJobId);
-    const { candidatePDA, candidateBump } = await getCandidatePDA(
-      applicationId,
-      cas.publicKey
-    );
-    const [jobPDA, jobBump] = await anchor.web3.PublicKey.findProgramAddress(
-      [
-        Buffer.from("jobfactory"),
-        Buffer.from(jobAdId.substring(0, 18)),
-        Buffer.from(jobAdId.substring(18, 36)),
-      ],
-      jobProgram.programId
-    );
-
-    const { generalPDA, generalBump } = await getGeneralPDA();
-
-    const { walletPDA, walletBump } = await getWalletPDA(jobAdId);
-
     // job doesnt exist
 
     try {
-      // const tx = await candidateStakingProgram.methods
-      //   .stake(
-      //     jobAdId,
-      //     applicationId,
-      //     candidateBump,
-      //     generalBump,
-      //     applicationBump,
-      //     jobFactoryBump,
-      //     walletBump,
-      //     new anchor.BN(stakeAmount)
-      //   )
-      //   .accounts({
-      //     baseAccount: candidatePDA,
-      //     authority: cas.publicKey,
-      //     tokenMint: USDCMint,
-      //     generalAccount: generalPDA,
-      //     jobAccount: jobFactoryPDA,
-      //     applicationAccount: applicationPDA,
-      //     generalProgram: generalProgram.programId,
-      //     applicationProgram: applicationProgram.programId,
-      //     jobProgram: jobProgram.programId,
-      //     escrowWalletState: walletPDA,
-      //     walletToWithdrawFrom: casTokenAccount,
-      //     systemProgram: anchor.web3.SystemProgram.programId,
-      //     tokenProgram: spl.TOKEN_PROGRAM_ID,
-      //     rent: anchor.web3.SYSVAR_RENT_PUBKEY,
-      //     instruction: anchor.web3.SYSVAR_INSTRUCTIONS_PUBKEY,
-      //   })
-      //   .signers([cas]) // Cas is the person who is staking on the application.
-      //   .rpc();
-      await stakeAmountFunction(testJobId, applicationId, stakeAmount, cas, casTokenAccount); 
+      await stakeAmountFunction(
+        testJobId,
+        applicationId,
+        stakeAmount,
+        cas,
+        casTokenAccount
+      );
     } catch (error) {
-      // console.log(error);
       assert.equal(error.error.errorCode.code, "AccountNotInitialized");
     }
 
     // job exists but application doesnt
 
     try {
-      const tx = await candidateStakingProgram.methods
-        .stake(
-          jobAdId,
-          applicationId,
-          candidateBump,
-          generalBump,
-          applicationBump,
-          jobBump,
-          walletBump,
-          new anchor.BN(stakeAmount)
-        )
-        .accounts({
-          baseAccount: candidatePDA,
-          authority: cas.publicKey,
-          tokenMint: USDCMint,
-          generalAccount: generalPDA,
-          jobAccount: jobPDA,
-          applicationAccount: applicationPDA,
-          generalProgram: generalProgram.programId,
-          applicationProgram: applicationProgram.programId,
-          jobProgram: jobProgram.programId,
-          escrowWalletState: walletPDA,
-          walletToWithdrawFrom: casTokenAccount,
-          systemProgram: anchor.web3.SystemProgram.programId,
-          tokenProgram: spl.TOKEN_PROGRAM_ID,
-          rent: anchor.web3.SYSVAR_RENT_PUBKEY,
-          instruction: anchor.web3.SYSVAR_INSTRUCTIONS_PUBKEY,
-        })
-        .signers([cas]) // Cas is the person who is staking on the application.
-        .rpc();
+      await stakeAmountFunction(
+        jobAdId,
+        testApplicationId,
+        stakeAmount,
+        cas,
+        casTokenAccount
+      );
     } catch (error) {
-      // console.log(error);
       assert.equal(error.error.errorCode.code, "AccountNotInitialized");
     }
   });
 
   it("Signer and token account owner should be the same else it should fail", async () => {
-    const { applicationPDA, applicationBump } = await getApplicationPDA(
-      applicationId
-    );
-    const { jobFactoryPDA, jobFactoryBump } = await getJobPDA(jobAdId);
-    const { candidatePDA, candidateBump } = await getCandidatePDA(
-      applicationId,
-      cas.publicKey
-    );
-    const { generalPDA, generalBump } = await getGeneralPDA();
-
-    const { walletPDA, walletBump } = await getWalletPDA(jobAdId);
     try {
-      const tx = await candidateStakingProgram.methods
-        .stake(
-          jobAdId,
-          applicationId,
-          candidateBump,
-          generalBump,
-          applicationBump,
-          jobFactoryBump,
-          walletBump,
-          new anchor.BN(stakeAmount)
-        )
-        .accounts({
-          baseAccount: candidatePDA,
-          authority: cas.publicKey,
-          tokenMint: USDCMint,
-          generalAccount: generalPDA,
-          jobAccount: jobFactoryPDA,
-          applicationAccount: applicationPDA,
-          generalProgram: generalProgram.programId,
-          applicationProgram: applicationProgram.programId,
-          jobProgram: jobProgram.programId,
-          escrowWalletState: walletPDA,
-          walletToWithdrawFrom: aliceTokenAccount,
-          systemProgram: anchor.web3.SystemProgram.programId,
-          tokenProgram: spl.TOKEN_PROGRAM_ID,
-          rent: anchor.web3.SYSVAR_RENT_PUBKEY,
-          instruction: anchor.web3.SYSVAR_INSTRUCTIONS_PUBKEY,
-        })
-        .signers([cas]) // Cas is the person who is staking on the application.
-        .rpc();
+      await stakeAmountFunction(
+        jobAdId,
+        applicationId,
+        stakeAmount,
+        cas,
+        aliceTokenAccount
+      );
     } catch (error) {
       assert.equal(error.error.errorCode.code, "ConstraintRaw");
     }
   });
 
   it("Minting some tokens to escrow account to pay for rewards", async () => {
-    const { walletPDA, walletBump } = await getWalletPDA(jobAdId);
-
-    await spl.mintTo(
-      provider.connection,
-      admin,
-      USDCMint,
-      walletPDA,
-      admin,
-      initialMintAmount
-    );
+    await fundPoolWallet(jobAdId);
   });
 
   it("updates application status", async () => {
     const { applicationPDA, applicationBump } = await getApplicationPDA(
       applicationId
     );
-    const [jobPDA, jobBump] = await anchor.web3.PublicKey.findProgramAddress(
-      [
-        Buffer.from("jobfactory"),
-        Buffer.from(jobAdId.substring(0, 18)),
-        Buffer.from(jobAdId.substring(18, 36)),
-      ],
-      jobProgram.programId
-    );
 
-    const tx = await applicationProgram.methods
-      .updateStatus(applicationId, applicationBump, jobAdId, jobBump, {
-        selected: {},
-      })
-      .accounts({
-        baseAccount: applicationPDA,
-        authority: admin.publicKey,
-        jobAccount: jobPDA,
-        jobProgram: jobProgram.programId,
-        instruction: anchor.web3.SYSVAR_INSTRUCTIONS_PUBKEY,
-      })
-      .signers([admin])
-      .rpc();
+    await changeApplicationStatus(jobAdId, applicationId, { selected: {} });
 
     let state = await applicationProgram.account.applicationParameter.fetch(
       applicationPDA
@@ -1021,19 +864,7 @@ describe("candidate_staking", () => {
 
     assert("selected" in state.status);
 
-    const tx1 = await applicationProgram.methods
-      .updateStatus(applicationId, applicationBump, jobAdId, jobBump, {
-        rejected: {},
-      })
-      .accounts({
-        baseAccount: applicationPDA,
-        authority: admin.publicKey,
-        jobAccount: jobPDA,
-        jobProgram: jobProgram.programId,
-        instruction: anchor.web3.SYSVAR_INSTRUCTIONS_PUBKEY,
-      })
-      .signers([admin])
-      .rpc();
+    await changeApplicationStatus(jobAdId, applicationId, { rejected: {} });
 
     state = await applicationProgram.account.applicationParameter.fetch(
       applicationPDA
@@ -1041,19 +872,10 @@ describe("candidate_staking", () => {
 
     assert("rejected" in state.status);
 
-    const tx2 = await applicationProgram.methods
-      .updateStatus(applicationId, applicationBump, jobAdId, jobBump, {
-        selectedButCantWithdraw: {},
-      })
-      .accounts({
-        baseAccount: applicationPDA,
-        authority: admin.publicKey,
-        jobAccount: jobPDA,
-        jobProgram: jobProgram.programId,
-        instruction: anchor.web3.SYSVAR_INSTRUCTIONS_PUBKEY,
-      })
-      .signers([admin])
-      .rpc();
+    await changeApplicationStatus(jobAdId, applicationId, {
+      selectedButCantWithdraw: {},
+    });
+
     state = await applicationProgram.account.applicationParameter.fetch(
       applicationPDA
     );
@@ -1062,61 +884,14 @@ describe("candidate_staking", () => {
   });
 
   it("Not able to stake after changing the status of application", async () => {
-    const { candidatePDA, candidateBump } = await getCandidatePDA(
-      applicationId,
-      cas.publicKey
-    );
-
-    const { applicationPDA, applicationBump } = await getApplicationPDA(
-      applicationId
-    );
-
-    const [jobPDA, jobBump] = await anchor.web3.PublicKey.findProgramAddress(
-      [
-        Buffer.from("jobfactory"),
-        Buffer.from(jobAdId.substring(0, 18)),
-        Buffer.from(jobAdId.substring(18, 36)),
-      ],
-      jobProgram.programId
-    );
-
-    const { generalPDA, generalBump } = await getGeneralPDA();
-
-    const { walletPDA, walletBump } = await getWalletPDA(jobAdId);
-
-    const stakeAmountInBN = new anchor.BN(stakeAmount);
-
     try {
-      const tx = await candidateStakingProgram.methods
-        .stake(
-          jobAdId,
-          applicationId,
-          candidateBump,
-          generalBump,
-          applicationBump,
-          jobBump,
-          walletBump,
-          new anchor.BN(stakeAmount)
-        )
-        .accounts({
-          baseAccount: candidatePDA,
-          authority: cas.publicKey,
-          tokenMint: USDCMint,
-          generalAccount: generalPDA,
-          jobAccount: jobPDA,
-          applicationAccount: applicationPDA,
-          generalProgram: generalProgram.programId,
-          applicationProgram: applicationProgram.programId,
-          jobProgram: jobProgram.programId,
-          escrowWalletState: walletPDA,
-          walletToWithdrawFrom: casTokenAccount,
-          systemProgram: anchor.web3.SystemProgram.programId,
-          tokenProgram: spl.TOKEN_PROGRAM_ID,
-          rent: anchor.web3.SYSVAR_RENT_PUBKEY,
-          instruction: anchor.web3.SYSVAR_INSTRUCTIONS_PUBKEY,
-        })
-        .signers([cas])
-        .rpc();
+      await stakeAmountFunction(
+        jobAdId,
+        applicationId,
+        stakeAmount,
+        cas,
+        casTokenAccount
+      );
     } catch (error) {
       assert.equal(error.error.errorCode.code, "StatusNotPending");
     }
@@ -1136,27 +911,15 @@ describe("candidate_staking", () => {
 
     const { walletPDA, walletBump } = await getWalletPDA(jobAdId);
 
-    const { generalPDA, generalBump } = await getGeneralPDA();
-
     const candidateState =
       await candidateStakingProgram.account.candidateParameter.fetch(
         candidatePDA
       );
     const reward = candidateState.rewardAmount.toNumber();
 
-    await applicationProgram.methods
-      .updateStatus(applicationId, applicationBump, jobAdId, jobFactoryBump, {
-        selectedButCantWithdraw: {},
-      })
-      .accounts({
-        baseAccount: applicationPDA,
-        authority: admin.publicKey,
-        jobAccount: jobFactoryPDA,
-        jobProgram: jobProgram.programId,
-        instruction: anchor.web3.SYSVAR_INSTRUCTIONS_PUBKEY,
-      })
-      .signers([admin])
-      .rpc();
+    await changeApplicationStatus(jobAdId, applicationId, {
+      selectedButCantWithdraw: {},
+    });
 
     let state = await applicationProgram.account.applicationParameter.fetch(
       applicationPDA
@@ -1166,32 +929,7 @@ describe("candidate_staking", () => {
 
     // This instruction should fail, cause in this state the user cannot withdraw the rewards and the initialAmount
     try {
-      await candidateStakingProgram.methods
-        .unstake(
-          candidateBump,
-          applicationBump,
-          walletBump,
-          applicationId,
-          jobAdId,
-          jobFactoryBump
-        )
-        .accounts({
-          baseAccount: candidatePDA,
-          jobAccount: jobFactoryPDA,
-          authority: cas.publicKey,
-          tokenMint: USDCMint,
-          applicationAccount: applicationPDA,
-          applicationProgram: applicationProgram.programId,
-          escrowWalletState: walletPDA,
-          walletToDepositTo: casTokenAccount,
-          jobProgram: jobProgram.programId,
-          systemProgram: anchor.web3.SystemProgram.programId,
-          tokenProgram: spl.TOKEN_PROGRAM_ID,
-          rent: anchor.web3.SYSVAR_RENT_PUBKEY,
-          instruction: anchor.web3.SYSVAR_INSTRUCTIONS_PUBKEY,
-        })
-        .signers([cas])
-        .rpc();
+      await unstakeFunction(jobAdId, applicationId, cas, casTokenAccount);
 
       throw "This should not happen";
     } catch (error) {
@@ -1200,19 +938,7 @@ describe("candidate_staking", () => {
 
     //changing the application state to selected
 
-    const tx = await applicationProgram.methods
-      .updateStatus(applicationId, applicationBump, jobAdId, jobFactoryBump, {
-        selected: {},
-      })
-      .accounts({
-        baseAccount: applicationPDA,
-        authority: admin.publicKey,
-        jobAccount: jobFactoryPDA,
-        jobProgram: jobProgram.programId,
-        instruction: anchor.web3.SYSVAR_INSTRUCTIONS_PUBKEY,
-      })
-      .signers([admin])
-      .rpc();
+    await changeApplicationStatus(jobAdId, applicationId, { selected: {} });
 
     state = await applicationProgram.account.applicationParameter.fetch(
       applicationPDA
@@ -1226,32 +952,7 @@ describe("candidate_staking", () => {
     );
 
     try {
-      const tx = await candidateStakingProgram.methods
-        .unstake(
-          candidateBump,
-          applicationBump,
-          walletBump,
-          applicationId,
-          jobAdId,
-          jobFactoryBump
-        )
-        .accounts({
-          baseAccount: candidatePDA,
-          jobAccount: jobFactoryPDA,
-          authority: cas.publicKey,
-          tokenMint: USDCMint,
-          applicationAccount: applicationPDA,
-          applicationProgram: applicationProgram.programId,
-          escrowWalletState: walletPDA,
-          walletToDepositTo: casTokenAccount,
-          jobProgram: jobProgram.programId,
-          systemProgram: anchor.web3.SystemProgram.programId,
-          tokenProgram: spl.TOKEN_PROGRAM_ID,
-          rent: anchor.web3.SYSVAR_RENT_PUBKEY,
-          instruction: anchor.web3.SYSVAR_INSTRUCTIONS_PUBKEY,
-        })
-        .signers([cas])
-        .rpc();
+      await unstakeFunction(jobAdId, applicationId, cas, casTokenAccount);
     } catch (error) {
       console.log(error);
     }
@@ -1291,19 +992,7 @@ describe("candidate_staking", () => {
     // since we cannot unstake now even after changing the state of application cause the unstake has already happened and can happen only once
     // so we will change the application status to pending, stake , change status to rejection and check if the deposit amount is unstaked
 
-    await applicationProgram.methods
-      .updateStatus(applicationId, applicationBump, jobAdId, jobFactoryBump, {
-        pending: {},
-      })
-      .accounts({
-        baseAccount: applicationPDA,
-        authority: admin.publicKey,
-        jobAccount: jobFactoryPDA,
-        jobProgram: jobProgram.programId,
-        instruction: anchor.web3.SYSVAR_INSTRUCTIONS_PUBKEY,
-      })
-      .signers([admin])
-      .rpc();
+    await changeApplicationStatus(jobAdId, applicationId, { pending: {} });
 
     state = await applicationProgram.account.applicationParameter.fetch(
       applicationPDA
@@ -1316,36 +1005,13 @@ describe("candidate_staking", () => {
       casTokenAccount
     );
 
-    await candidateStakingProgram.methods
-      .stake(
-        jobAdId,
-        applicationId,
-        candidateBump,
-        generalBump,
-        applicationBump,
-        jobFactoryBump,
-        walletBump,
-        new anchor.BN(stakeAmount)
-      )
-      .accounts({
-        baseAccount: candidatePDA,
-        authority: cas.publicKey,
-        tokenMint: USDCMint,
-        generalAccount: generalPDA,
-        jobAccount: jobFactoryPDA,
-        applicationAccount: applicationPDA,
-        generalProgram: generalProgram.programId,
-        applicationProgram: applicationProgram.programId,
-        jobProgram: jobProgram.programId,
-        escrowWalletState: walletPDA,
-        walletToWithdrawFrom: casTokenAccount,
-        systemProgram: anchor.web3.SystemProgram.programId,
-        tokenProgram: spl.TOKEN_PROGRAM_ID,
-        rent: anchor.web3.SYSVAR_RENT_PUBKEY,
-        instruction: anchor.web3.SYSVAR_INSTRUCTIONS_PUBKEY,
-      })
-      .signers([cas])
-      .rpc();
+    await stakeAmountFunction(
+      jobAdId,
+      applicationId,
+      stakeAmount,
+      cas,
+      casTokenAccount
+    );
 
     const casTokenAccountAfter = await spl.getAccount(
       provider.connection,
@@ -1357,19 +1023,7 @@ describe("candidate_staking", () => {
       stakeAmount
     );
 
-    await applicationProgram.methods
-      .updateStatus(applicationId, applicationBump, jobAdId, jobFactoryBump, {
-        rejected: {},
-      })
-      .accounts({
-        baseAccount: applicationPDA,
-        authority: admin.publicKey,
-        jobAccount: jobFactoryPDA,
-        jobProgram: jobProgram.programId,
-        instruction: anchor.web3.SYSVAR_INSTRUCTIONS_PUBKEY,
-      })
-      .signers([admin])
-      .rpc();
+    await changeApplicationStatus(jobAdId, applicationId, { rejected: {} });
 
     state = await applicationProgram.account.applicationParameter.fetch(
       applicationPDA
@@ -1382,32 +1036,7 @@ describe("candidate_staking", () => {
       casTokenAccount
     );
 
-    await candidateStakingProgram.methods
-      .unstake(
-        candidateBump,
-        applicationBump,
-        walletBump,
-        applicationId,
-        jobAdId,
-        jobFactoryBump
-      )
-      .accounts({
-        baseAccount: candidatePDA,
-        jobAccount: jobFactoryPDA,
-        authority: cas.publicKey,
-        tokenMint: USDCMint,
-        applicationAccount: applicationPDA,
-        applicationProgram: applicationProgram.programId,
-        escrowWalletState: walletPDA,
-        walletToDepositTo: casTokenAccount,
-        jobProgram: jobProgram.programId,
-        systemProgram: anchor.web3.SystemProgram.programId,
-        tokenProgram: spl.TOKEN_PROGRAM_ID,
-        rent: anchor.web3.SYSVAR_RENT_PUBKEY,
-        instruction: anchor.web3.SYSVAR_INSTRUCTIONS_PUBKEY,
-      })
-      .signers([cas])
-      .rpc();
+    await unstakeFunction(jobAdId, applicationId, cas, casTokenAccount);
 
     const _casTokenWalletAfter = await spl.getAccount(
       provider.connection,
@@ -1420,382 +1049,341 @@ describe("candidate_staking", () => {
     );
   });
 
-  it("Cannot unstake again", async() => {
-
-    const { candidatePDA, candidateBump } = await getCandidatePDA(
-      applicationId,
-      cas.publicKey
-    );
-
-    const { jobFactoryPDA, jobFactoryBump } = await getJobPDA(jobAdId);
-
-    const { applicationPDA, applicationBump } = await getApplicationPDA(
-      applicationId
-    );
-
-    const { walletPDA, walletBump } = await getWalletPDA(jobAdId);
-
+  it("Cannot unstake again", async () => {
     try {
-      await candidateStakingProgram.methods
-      .unstake(
-        candidateBump,
-        applicationBump,
-        walletBump,
-        applicationId,
-        jobAdId,
-        jobFactoryBump
-      )
-      .accounts({
-        baseAccount: candidatePDA,
-        jobAccount: jobFactoryPDA,
-        authority: cas.publicKey,
-        tokenMint: USDCMint,
-        applicationAccount: applicationPDA,
-        applicationProgram: applicationProgram.programId,
-        escrowWalletState: walletPDA,
-        walletToDepositTo: casTokenAccount,
-        jobProgram: jobProgram.programId,
-        systemProgram: anchor.web3.SystemProgram.programId,
-        tokenProgram: spl.TOKEN_PROGRAM_ID,
-        rent: anchor.web3.SYSVAR_RENT_PUBKEY,
-        instruction: anchor.web3.SYSVAR_INSTRUCTIONS_PUBKEY,
-      })
-      .signers([cas])
-      .rpc();
+      await unstakeFunction(jobAdId, applicationId, cas, casTokenAccount);
     } catch (error) {
-      assert.equal(error.error.errorCode.code, "AlreadyUnstaked")
-    } 
-  })
+      assert.equal(error.error.errorCode.code, "AlreadyUnstaked");
+    }
+  });
 
-  
+  it("Rewards for users in different tiers", async () => {
+    const tier1Amount = 2000; // The complete amount is tier 1
+    const tier1Reward = 6000; // The reward for tier1 only
 
-  // it("Rewards for users in different tiers", async () => {
-  //   const tier1Amount = 2000; // The complete amount is tier 1
-  //   const tier1Reward = 6000; // The reward for tier1 only
+    const tier1AndTier2Amount = 5000; // 3333 would be in tier 1 and 1667 would be in tier 2
+    const tier1AndTier2Reward = 13333; // the reward for tier1 and tier 2
 
-  //   const tier1AndTier2Amount = 5000; // 3333 would be in tier 1 and 1667 would be in tier 2
-  //   const tier1AndTier2Reward = 13333; // the reward for tier1 and tier 2
+    const all3TierAmount = 8000; // 3333 would be in tier 1, the next 3333 would be in tier 2 and 1334 would be in tier 3
+    const all3TierReward = 18666; // The reward in all 3 tiers
 
-  //   const all3TierAmount = 8000; // 3333 would be in tier 1, the next 3333 would be in tier 2 and 1334 would be in tier 3
-  //   const all3TierReward = 18666; // The reward in all 3 tiers
+    const onlyTier2Amount = 3000; // There will already be 3333 staked so this amount lies in tier 2 only
+    const onlyTier2Reward = 6000; // the reward in tier 2 only
 
-  //   const onlyTier2Amount = 3000; // There will already be 3333 staked so this amount lies in tier 2 only
-  //   const onlyTier2Reward = 6000; // the reward in tier 2 only
+    const tier2AndTier3Amount = 5000; // 3333 already in tier 1, so 3333 in tier 2 and the rest 1334 in tier 3
+    const tier2AndTier3Reward = 9166; // the reward in tier2 and tier 3
 
-  //   const tier2AndTier3Amount = 5000; // 3333 already in tier 1, so 3333 in tier 2 and the rest 1334 in tier 3
-  //   const tier2AndTier3Reward = 9166; // the reward in tier2 and tier 3
+    const onlyTier3Amount = 3000; // There will be 3333 already in tier 1, 3333 in tier2 so this remaining amount would be in tier 3 entirely
+    const onlyTier3Reward = 4500; // the reward
 
-  //   const onlyTier3Amount = 3000; // There will be 3333 already in tier 1, 3333 in tier2 so this remaining amount would be in tier 3 entirely
-  //   const onlyTier3Reward = 4500; // the reward
+    const tier1 = 3333;
+    const tier2 = 3333;
 
-  //   const tier1 = 3333;
-  //   const tier2 = 3333;
+    // Reward in tier 1
 
-  //   // Reward in tier 1
+    const jobAdIdTier1 = uuidv4();
+    const applicationIdTier1 = uuidv4();
 
-  //   const jobAdIdTier1 = uuidv4();
-  //   const applicationIdTier1 = uuidv4();
+    await allProgramInitialize(jobAdIdTier1, applicationIdTier1, alice);
 
-  //   await allProgramInitialize(jobAdIdTier1, applicationIdTier1, alice);
+    let aliceTokenAccountBeforeStake = await spl.getAccount(
+      provider.connection,
+      aliceTokenAccount
+    );
 
-  //   let aliceTokenAccountBeforeStake = await spl.getAccount(
-  //     provider.connection,
-  //     aliceTokenAccount
-  //   );
+    await stakeAmountFunction(
+      jobAdIdTier1,
+      applicationIdTier1,
+      tier1Amount,
+      alice,
+      aliceTokenAccount
+    );
 
-  //   await stakeAmountFunction(
-  //     jobAdIdTier1,
-  //     applicationIdTier1,
-  //     tier1Amount,
-  //     alice,
-  //     aliceTokenAccount
-  //   );
+    let aliceTokenAccountBefore = await spl.getAccount(
+      provider.connection,
+      aliceTokenAccount
+    );
 
-  //   let aliceTokenAccountBefore = await spl.getAccount(
-  //     provider.connection,
-  //     aliceTokenAccount
-  //   );
+    assert.equal(
+      aliceTokenAccountBeforeStake.amount - aliceTokenAccountBefore.amount,
+      tier1Amount
+    );
 
-  //   assert.equal(
-  //     aliceTokenAccountBeforeStake.amount - aliceTokenAccountBefore.amount,
-  //     tier1Amount
-  //   );
+    await fundPoolWallet(jobAdIdTier1);
+    await changeStatusAndUnstake(
+      jobAdIdTier1,
+      applicationIdTier1,
+      alice,
+      aliceTokenAccount
+    );
 
-  //   await fundPoolWallet(jobAdIdTier1);
-  //   await changeStatusAndUnstake(
-  //     jobAdIdTier1,
-  //     applicationIdTier1,
-  //     alice,
-  //     aliceTokenAccount
-  //   );
+    let aliceTokenAccountAfter = await spl.getAccount(
+      provider.connection,
+      aliceTokenAccount
+    );
+    assert.equal(
+      aliceTokenAccountAfter.amount - aliceTokenAccountBefore.amount,
+      tier1Reward
+    );
 
-  //   let aliceTokenAccountAfter = await spl.getAccount(
-  //     provider.connection,
-  //     aliceTokenAccount
-  //   );
-  //   assert.equal(
-  //     aliceTokenAccountAfter.amount - aliceTokenAccountBefore.amount,
-  //     tier1Reward
-  //   );
+    // Reward in tier 1 and 2
 
-  //   // Reward in tier 1 and 2
+    const jobAdIdTier1And2 = uuidv4();
+    const applicationIdTier1And2 = uuidv4();
 
-  //   const jobAdIdTier1And2 = uuidv4();
-  //   const applicationIdTier1And2 = uuidv4();
+    await allProgramInitialize(jobAdIdTier1And2, applicationIdTier1And2, alice);
 
-  //   await allProgramInitialize(jobAdIdTier1And2, applicationIdTier1And2, alice);
+    aliceTokenAccountBeforeStake = await spl.getAccount(
+      provider.connection,
+      aliceTokenAccount
+    );
 
-  //   aliceTokenAccountBeforeStake = await spl.getAccount(
-  //     provider.connection,
-  //     aliceTokenAccount
-  //   );
+    await stakeAmountFunction(
+      jobAdIdTier1And2,
+      applicationIdTier1And2,
+      tier1AndTier2Amount,
+      alice,
+      aliceTokenAccount
+    );
 
-  //   await stakeAmountFunction(
-  //     jobAdIdTier1And2,
-  //     applicationIdTier1And2,
-  //     tier1AndTier2Amount,
-  //     alice,
-  //     aliceTokenAccount
-  //   );
+    aliceTokenAccountBefore = await spl.getAccount(
+      provider.connection,
+      aliceTokenAccount
+    );
 
-  //   aliceTokenAccountBefore = await spl.getAccount(
-  //     provider.connection,
-  //     aliceTokenAccount
-  //   );
+    assert.equal(
+      aliceTokenAccountBeforeStake.amount - aliceTokenAccountBefore.amount,
+      tier1AndTier2Amount
+    );
 
-  //   assert.equal(
-  //     aliceTokenAccountBeforeStake.amount - aliceTokenAccountBefore.amount,
-  //     tier1AndTier2Amount
-  //   );
+    await fundPoolWallet(jobAdIdTier1And2);
+    await changeStatusAndUnstake(
+      jobAdIdTier1And2,
+      applicationIdTier1And2,
+      alice,
+      aliceTokenAccount
+    );
 
-  //   await fundPoolWallet(jobAdIdTier1And2);
-  //   await changeStatusAndUnstake(
-  //     jobAdIdTier1And2,
-  //     applicationIdTier1And2,
-  //     alice,
-  //     aliceTokenAccount
-  //   );
+    aliceTokenAccountAfter = await spl.getAccount(
+      provider.connection,
+      aliceTokenAccount
+    );
+    assert.equal(
+      aliceTokenAccountAfter.amount - aliceTokenAccountBefore.amount,
+      tier1AndTier2Reward
+    );
 
-  //   aliceTokenAccountAfter = await spl.getAccount(
-  //     provider.connection,
-  //     aliceTokenAccount
-  //   );
-  //   assert.equal(
-  //     aliceTokenAccountAfter.amount - aliceTokenAccountBefore.amount,
-  //     tier1AndTier2Reward
-  //   );
+    // Reward in all 3 tiers
 
-  //   // Reward in all 3 tiers
+    const jobAdIdAll3Tiers = uuidv4();
+    const applicationIdAll3Tiers = uuidv4();
 
-  //   const jobAdIdAll3Tiers = uuidv4();
-  //   const applicationIdAll3Tiers = uuidv4();
+    await allProgramInitialize(jobAdIdAll3Tiers, applicationIdAll3Tiers, alice);
 
-  //   await allProgramInitialize(jobAdIdAll3Tiers, applicationIdAll3Tiers, alice);
+    aliceTokenAccountBeforeStake = await spl.getAccount(
+      provider.connection,
+      aliceTokenAccount
+    );
 
-  //   aliceTokenAccountBeforeStake = await spl.getAccount(
-  //     provider.connection,
-  //     aliceTokenAccount
-  //   );
+    await stakeAmountFunction(
+      jobAdIdAll3Tiers,
+      applicationIdAll3Tiers,
+      all3TierAmount,
+      alice,
+      aliceTokenAccount
+    );
 
-  //   await stakeAmountFunction(
-  //     jobAdIdAll3Tiers,
-  //     applicationIdAll3Tiers,
-  //     all3TierAmount,
-  //     alice,
-  //     aliceTokenAccount
-  //   );
+    aliceTokenAccountBefore = await spl.getAccount(
+      provider.connection,
+      aliceTokenAccount
+    );
 
-  //   aliceTokenAccountBefore = await spl.getAccount(
-  //     provider.connection,
-  //     aliceTokenAccount
-  //   );
+    assert.equal(
+      aliceTokenAccountBeforeStake.amount - aliceTokenAccountBefore.amount,
+      all3TierAmount
+    );
 
-  //   assert.equal(
-  //     aliceTokenAccountBeforeStake.amount - aliceTokenAccountBefore.amount,
-  //     all3TierAmount
-  //   );
+    await fundPoolWallet(jobAdIdAll3Tiers);
+    await changeStatusAndUnstake(
+      jobAdIdAll3Tiers,
+      applicationIdAll3Tiers,
+      alice,
+      aliceTokenAccount
+    );
 
-  //   await fundPoolWallet(jobAdIdAll3Tiers);
-  //   await changeStatusAndUnstake(
-  //     jobAdIdAll3Tiers,
-  //     applicationIdAll3Tiers,
-  //     alice,
-  //     aliceTokenAccount
-  //   );
+    aliceTokenAccountAfter = await spl.getAccount(
+      provider.connection,
+      aliceTokenAccount
+    );
+    assert.equal(
+      aliceTokenAccountAfter.amount - aliceTokenAccountBefore.amount,
+      all3TierReward
+    );
 
-  //   aliceTokenAccountAfter = await spl.getAccount(
-  //     provider.connection,
-  //     aliceTokenAccount
-  //   );
-  //   assert.equal(
-  //     aliceTokenAccountAfter.amount - aliceTokenAccountBefore.amount,
-  //     all3TierReward
-  //   );
+    // reward in tier2 only
 
-  //   // reward in tier2 only
+    const jobAdIdTier2 = uuidv4();
+    const applicationIdTier2 = uuidv4();
 
-  //   const jobAdIdTier2 = uuidv4();
-  //   const applicationIdTier2 = uuidv4();
+    await allProgramInitialize(jobAdIdTier2, applicationIdTier2, alice);
+    await allProgramInitialize(jobAdIdTier2, applicationIdTier2, cas); // Initializing with cas so the tier 1 deposit is done
 
-  //   await allProgramInitialize(jobAdIdTier2, applicationIdTier2, alice);
-  //   await allProgramInitialize(jobAdIdTier2, applicationIdTier2, cas); // Initializing with cas so the tier 1 deposit is done
+    aliceTokenAccountBeforeStake = await spl.getAccount(
+      provider.connection,
+      aliceTokenAccount
+    );
 
-  //   aliceTokenAccountBeforeStake = await spl.getAccount(
-  //     provider.connection,
-  //     aliceTokenAccount
-  //   );
+    await stakeAmountFunction(
+      jobAdIdTier2,
+      applicationIdTier2,
+      tier1,
+      cas,
+      casTokenAccount
+    ); // now 3333 is already deposited, which means that any more deposits would go to tier2
+    await stakeAmountFunction(
+      jobAdIdTier2,
+      applicationIdTier2,
+      onlyTier2Amount,
+      alice,
+      aliceTokenAccount
+    );
 
-  //   await stakeAmountFunction(
-  //     jobAdIdTier2,
-  //     applicationIdTier2,
-  //     tier1,
-  //     cas,
-  //     casTokenAccount
-  //   ); // now 3333 is already deposited, which means that any more deposits would go to tier2
-  //   await stakeAmountFunction(
-  //     jobAdIdTier2,
-  //     applicationIdTier2,
-  //     onlyTier2Amount,
-  //     alice,
-  //     aliceTokenAccount
-  //   );
+    aliceTokenAccountBefore = await spl.getAccount(
+      provider.connection,
+      aliceTokenAccount
+    );
 
-  //   aliceTokenAccountBefore = await spl.getAccount(
-  //     provider.connection,
-  //     aliceTokenAccount
-  //   );
+    assert.equal(
+      aliceTokenAccountBeforeStake.amount - aliceTokenAccountBefore.amount,
+      onlyTier2Amount
+    );
 
-  //   assert.equal(
-  //     aliceTokenAccountBeforeStake.amount - aliceTokenAccountBefore.amount,
-  //     onlyTier2Amount
-  //   );
+    await fundPoolWallet(jobAdIdTier2);
+    await changeStatusAndUnstake(
+      jobAdIdTier2,
+      applicationIdTier2,
+      alice,
+      aliceTokenAccount
+    );
 
-  //   await fundPoolWallet(jobAdIdTier2);
-  //   await changeStatusAndUnstake(
-  //     jobAdIdTier2,
-  //     applicationIdTier2,
-  //     alice,
-  //     aliceTokenAccount
-  //   );
+    aliceTokenAccountAfter = await spl.getAccount(
+      provider.connection,
+      aliceTokenAccount
+    );
+    assert.equal(
+      aliceTokenAccountAfter.amount - aliceTokenAccountBefore.amount,
+      onlyTier2Reward
+    );
 
-  //   aliceTokenAccountAfter = await spl.getAccount(
-  //     provider.connection,
-  //     aliceTokenAccount
-  //   );
-  //   assert.equal(
-  //     aliceTokenAccountAfter.amount - aliceTokenAccountBefore.amount,
-  //     onlyTier2Reward
-  //   );
+    // reward in tier 2 and tier 3
+    const jobAdIdTier2And3 = uuidv4();
+    const applicationIdTier2And3 = uuidv4();
 
-  //   // reward in tier 2 and tier 3
-  //   const jobAdIdTier2And3 = uuidv4();
-  //   const applicationIdTier2And3 = uuidv4();
+    await allProgramInitialize(jobAdIdTier2And3, applicationIdTier2And3, alice);
+    await allProgramInitialize(jobAdIdTier2And3, applicationIdTier2And3, cas); // Initializing with cas so the tier 1 deposit is done
 
-  //   await allProgramInitialize(jobAdIdTier2And3, applicationIdTier2And3, alice);
-  //   await allProgramInitialize(jobAdIdTier2And3, applicationIdTier2And3, cas); // Initializing with cas so the tier 1 deposit is done
+    aliceTokenAccountBeforeStake = await spl.getAccount(
+      provider.connection,
+      aliceTokenAccount
+    );
 
-  //   aliceTokenAccountBeforeStake = await spl.getAccount(
-  //     provider.connection,
-  //     aliceTokenAccount
-  //   );
+    await stakeAmountFunction(
+      jobAdIdTier2And3,
+      applicationIdTier2And3,
+      tier1,
+      cas,
+      casTokenAccount
+    ); // now 3333 is already deposited, which means that any more deposits would go to tier2
+    await stakeAmountFunction(
+      jobAdIdTier2And3,
+      applicationIdTier2And3,
+      tier2AndTier3Amount,
+      alice,
+      aliceTokenAccount
+    );
 
-  //   await stakeAmountFunction(
-  //     jobAdIdTier2And3,
-  //     applicationIdTier2And3,
-  //     tier1,
-  //     cas,
-  //     casTokenAccount
-  //   ); // now 3333 is already deposited, which means that any more deposits would go to tier2
-  //   await stakeAmountFunction(
-  //     jobAdIdTier2And3,
-  //     applicationIdTier2And3,
-  //     tier2AndTier3Amount,
-  //     alice,
-  //     aliceTokenAccount
-  //   );
+    aliceTokenAccountBefore = await spl.getAccount(
+      provider.connection,
+      aliceTokenAccount
+    );
 
-  //   aliceTokenAccountBefore = await spl.getAccount(
-  //     provider.connection,
-  //     aliceTokenAccount
-  //   );
+    assert.equal(
+      aliceTokenAccountBeforeStake.amount - aliceTokenAccountBefore.amount,
+      tier2AndTier3Amount
+    );
 
-  //   assert.equal(
-  //     aliceTokenAccountBeforeStake.amount - aliceTokenAccountBefore.amount,
-  //     tier2AndTier3Amount
-  //   );
+    await fundPoolWallet(jobAdIdTier2And3);
+    await changeStatusAndUnstake(
+      jobAdIdTier2And3,
+      applicationIdTier2And3,
+      alice,
+      aliceTokenAccount
+    );
 
-  //   await fundPoolWallet(jobAdIdTier2And3);
-  //   await changeStatusAndUnstake(
-  //     jobAdIdTier2And3,
-  //     applicationIdTier2And3,
-  //     alice,
-  //     aliceTokenAccount
-  //   );
+    aliceTokenAccountAfter = await spl.getAccount(
+      provider.connection,
+      aliceTokenAccount
+    );
+    assert.equal(
+      aliceTokenAccountAfter.amount - aliceTokenAccountBefore.amount,
+      tier2AndTier3Reward
+    );
 
-  //   aliceTokenAccountAfter = await spl.getAccount(
-  //     provider.connection,
-  //     aliceTokenAccount
-  //   );
-  //   assert.equal(
-  //     aliceTokenAccountAfter.amount - aliceTokenAccountBefore.amount,
-  //     tier2AndTier3Reward
-  //   );
+    // reward in tier 3
+    const jobAdIdTier3 = uuidv4();
+    const applicationIdTier3 = uuidv4();
 
-  //   // reward in tier 3
-  //   const jobAdIdTier3 = uuidv4();
-  //   const applicationIdTier3 = uuidv4();
+    await allProgramInitialize(jobAdIdTier3, applicationIdTier3, alice);
+    await allProgramInitialize(jobAdIdTier3, applicationIdTier3, cas); // Initializing with cas so the tier 1 deposit is done
 
-  //   await allProgramInitialize(jobAdIdTier3, applicationIdTier3, alice);
-  //   await allProgramInitialize(jobAdIdTier3, applicationIdTier3, cas); // Initializing with cas so the tier 1 deposit is done
+    aliceTokenAccountBeforeStake = await spl.getAccount(
+      provider.connection,
+      aliceTokenAccount
+    );
 
-  //   aliceTokenAccountBeforeStake = await spl.getAccount(
-  //     provider.connection,
-  //     aliceTokenAccount
-  //   );
+    await stakeAmountFunction(
+      jobAdIdTier3,
+      applicationIdTier3,
+      tier1 + tier2,
+      cas,
+      casTokenAccount
+    ); // now 3333 + 3333 is already deposited, which means that any more deposits would go to tier3
+    await stakeAmountFunction(
+      jobAdIdTier3,
+      applicationIdTier3,
+      onlyTier3Amount,
+      alice,
+      aliceTokenAccount
+    );
 
-  //   await stakeAmountFunction(
-  //     jobAdIdTier3,
-  //     applicationIdTier3,
-  //     tier1 + tier2,
-  //     cas,
-  //     casTokenAccount
-  //   ); // now 3333 + 3333 is already deposited, which means that any more deposits would go to tier3
-  //   await stakeAmountFunction(
-  //     jobAdIdTier3,
-  //     applicationIdTier3,
-  //     onlyTier3Amount,
-  //     alice,
-  //     aliceTokenAccount
-  //   );
+    aliceTokenAccountBefore = await spl.getAccount(
+      provider.connection,
+      aliceTokenAccount
+    );
 
-  //   aliceTokenAccountBefore = await spl.getAccount(
-  //     provider.connection,
-  //     aliceTokenAccount
-  //   );
+    assert.equal(
+      aliceTokenAccountBeforeStake.amount - aliceTokenAccountBefore.amount,
+     onlyTier3Amount
+    );
 
-  //   assert.equal(
-  //     aliceTokenAccountBeforeStake.amount - aliceTokenAccountBefore.amount,
-  //    onlyTier3Amount
-  //   );
+    await fundPoolWallet(jobAdIdTier3);
+    await changeStatusAndUnstake(
+      jobAdIdTier3,
+      applicationIdTier3,
+      alice,
+      aliceTokenAccount
+    );
 
-  //   await fundPoolWallet(jobAdIdTier3);
-  //   await changeStatusAndUnstake(
-  //     jobAdIdTier3,
-  //     applicationIdTier3,
-  //     alice,
-  //     aliceTokenAccount
-  //   );
+    aliceTokenAccountAfter = await spl.getAccount(
+      provider.connection,
+      aliceTokenAccount
+    );
+    assert.equal(
+      aliceTokenAccountAfter.amount - aliceTokenAccountBefore.amount,
+      onlyTier3Reward
+    );
 
-  //   aliceTokenAccountAfter = await spl.getAccount(
-  //     provider.connection,
-  //     aliceTokenAccount
-  //   );
-  //   assert.equal(
-  //     aliceTokenAccountAfter.amount - aliceTokenAccountBefore.amount,
-  //     onlyTier3Reward
-  //   );
+    // console.log(aliceTokenAccountAfter.amount - aliceTokenAccountBefore.amount);
 
-  //   // console.log(aliceTokenAccountAfter.amount - aliceTokenAccountBefore.amount);
-
-  // });
+  });
 });
