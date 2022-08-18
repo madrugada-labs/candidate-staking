@@ -1,21 +1,21 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{Mint, Token, TokenAccount, Transfer};
-use application::program::Application;
 use application::cpi::accounts::UpdateStakeAmount;
-use job::cpi::accounts::UnstakeToken;
+use application::program::Application;
 use application::{self, ApplicationParameter, JobStatus, RewardCalculator};
 use general::program::General;
 use general::{self, GeneralParameter};
+use job::cpi::accounts::UnstakeToken;
 use job::program::Job;
 use job::{self, JobStakingParameter};
 
 declare_id!("BF1jhf5eA5X1Tu8JByv8htnkUaG6WzmYEMLx2kbZ7YiW");
 
 const CANDIDATE_SEED: &'static [u8] = b"candidate";
-const JOB_SEED: &'static [u8] = b"jobfactory";
 const APPLICATION_SEED: &'static [u8] = b"application";
 const GENERAL_SEED: &'static [u8] = b"general";
 const WALLET_SEED: &'static [u8] = b"wallet";
+const JOB_SEED: &'static [u8] = b"jobfactory";
 
 #[program]
 pub mod candidate_staking {
@@ -26,7 +26,7 @@ pub mod candidate_staking {
         ctx: Context<Initialize>,
         _job_ad_id: String,
         _application_id: String,
-        _job_bump: u8
+        _job_bump: u8,
     ) -> Result<()> {
         let state = &mut ctx.accounts.base_account;
 
@@ -44,10 +44,11 @@ pub mod candidate_staking {
         application_bump: u8,
         _job_bump: u8,
         _wallet_bump: u8,
-        amount: u32,
+        amount: u64,
     ) -> Result<()> {
         let general_parameter = &mut ctx.accounts.general_account;
         let application_parameter = &mut ctx.accounts.application_account;
+        let candidate_parameter = &mut ctx.accounts.base_account;
 
         if general_parameter.mint == ctx.accounts.token_mint.key() {
             msg!("Mint is matching");
@@ -55,26 +56,20 @@ pub mod candidate_staking {
             let already_staked_amount = application_parameter.staked_amount;
             let max_amount = application_parameter.max_allowed_staked;
 
-            if already_staked_amount + amount < max_amount {
+            if already_staked_amount
+                .checked_add(amount)
+                .ok_or_else(|| ErrorCode::MaxAmountExceeded)?
+                < max_amount
+            {
                 msg!("You can transfer");
                 msg!("Transfer is initiated");
 
                 let reward_calculator = RewardCalculator::new(application_parameter.as_ref());
 
-                ctx.accounts.base_account.staked_amount += amount;
-                ctx.accounts.base_account.reward_amount +=
-                    reward_calculator.calculate_reward(amount)?;
+                candidate_parameter.staked_amount = candidate_parameter.staked_amount.checked_add(amount).ok_or_else(|| ErrorCode::StakeAmountOverflow)?;
+                let reward_amount = reward_calculator.calculate_reward(amount)?;
+                candidate_parameter.reward_amount = candidate_parameter.reward_amount.checked_add(reward_amount).ok_or_else(|| ErrorCode::RewardAmountOverflow)?;
 
-                // making cpi call to application program to update the staked amount
-
-                // let application_bump_vector = application_bump.to_le_bytes();
-                // let inner = vec![
-                //     APPLICATION_SEED,
-                //     application_id.as_bytes()[..18].as_ref(),
-                //     application_id.as_bytes()[18..].as_ref(),
-                //     application_bump_vector.as_ref(),
-                // ];
-                // let outer = vec![inner.as_slice()];
                 let authority_key = ctx.accounts.authority.key();
 
                 let bump_vector = base_bump.to_le_bytes();
@@ -93,8 +88,15 @@ pub mod candidate_staking {
                     instruction: ctx.accounts.instruction.to_account_info(),
                 };
                 let cpi_program = ctx.accounts.application_program.to_account_info();
-                let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, outer.as_slice());
-                application::cpi::update_stake_amount(cpi_ctx, application_id.clone(), application_bump, amount, ctx.accounts.base_account.reward_amount)?;
+                let cpi_ctx =
+                    CpiContext::new_with_signer(cpi_program, cpi_accounts, outer.as_slice());
+                application::cpi::update_stake_amount(
+                    cpi_ctx,
+                    application_id.clone(),
+                    application_bump,
+                    amount,
+                    ctx.accounts.base_account.reward_amount,
+                )?;
 
                 // Below is the actual instruction that we are going to send to the Token program.
                 let transfer_instruction = Transfer {
@@ -108,12 +110,8 @@ pub mod candidate_staking {
                     outer.as_slice(), //signer PDA
                 );
 
-                let amount_in_32 = amount as u64;
 
-                // The `?` at the end will cause the function to return early in case of an error.
-                // This pattern is common in Rust.
-                anchor_spl::token::transfer(cpi_ctx, amount_in_32)?;
-
+                anchor_spl::token::transfer(cpi_ctx, amount)?;
                 msg!("token is deposited");
             } else {
                 return Err(error!(ErrorCode::MaxAmountExceeded));
@@ -135,6 +133,11 @@ pub mod candidate_staking {
         job_bump: u8,
     ) -> Result<()> {
         let application = &mut ctx.accounts.application_account;
+        let candidate_parameters = &mut ctx.accounts.base_account;
+
+        if candidate_parameters.staked_amount == 0 && candidate_parameters.reward_amount == 0 {
+            return Err(error!(ErrorCode::AlreadyUnstaked));
+        }
 
         match application.status {
             JobStatus::Pending => {
@@ -167,16 +170,25 @@ pub mod candidate_staking {
                     wallet_to_deposit_to: ctx.accounts.wallet_to_deposit_to.to_account_info(),
                     system_program: ctx.accounts.system_program.to_account_info(),
                     token_program: ctx.accounts.token_program.to_account_info(),
-                    rent : ctx.accounts.rent.to_account_info(),
+                    rent: ctx.accounts.rent.to_account_info(),
                     instructions: ctx.accounts.instruction.to_account_info(),
                 };
                 let cpi_program = ctx.accounts.job_program.to_account_info();
-                let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, outer.as_slice());
-                job::cpi::unstake(cpi_ctx, job_ad_id, job_bump, wallet_bump, ctx.accounts.base_account.reward_amount)?;
+                let cpi_ctx =
+                    CpiContext::new_with_signer(cpi_program, cpi_accounts, outer.as_slice());
+                job::cpi::unstake(
+                    cpi_ctx,
+                    job_ad_id,
+                    job_bump,
+                    wallet_bump,
+                    candidate_parameters.reward_amount,
+                )?;
 
+                candidate_parameters.reset_after_unstake();
             }
             JobStatus::Rejected => {
                 msg!("you are rejected");
+                msg!("{}", candidate_parameters.staked_amount);
                 let authority_key = ctx.accounts.authority.key();
 
                 let bump_vector = base_bump.to_le_bytes();
@@ -197,13 +209,21 @@ pub mod candidate_staking {
                     wallet_to_deposit_to: ctx.accounts.wallet_to_deposit_to.to_account_info(),
                     system_program: ctx.accounts.system_program.to_account_info(),
                     token_program: ctx.accounts.token_program.to_account_info(),
-                    rent : ctx.accounts.rent.to_account_info(),
+                    rent: ctx.accounts.rent.to_account_info(),
                     instructions: ctx.accounts.instruction.to_account_info(),
                 };
                 let cpi_program = ctx.accounts.job_program.to_account_info();
-                let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, outer.as_slice());
-                job::cpi::unstake(cpi_ctx, job_ad_id, job_bump, wallet_bump, ctx.accounts.base_account.staked_amount)?;
-            } // JobStatus::HEAD => todo!(),
+                let cpi_ctx =
+                    CpiContext::new_with_signer(cpi_program, cpi_accounts, outer.as_slice());
+                job::cpi::unstake(
+                    cpi_ctx,
+                    job_ad_id,
+                    job_bump,
+                    wallet_bump,
+                    candidate_parameters.staked_amount,
+                )?;
+                candidate_parameters.reset_after_unstake();
+            }
         }
 
         Ok(())
@@ -213,7 +233,7 @@ pub mod candidate_staking {
 #[derive(Accounts)]
 #[instruction(job_ad_id: String, application_id: String, job_bump: u8)]
 pub struct Initialize<'info> {
-    #[account(init, payer = authority, seeds = [CANDIDATE_SEED, application_id.as_bytes()[..18].as_ref(), application_id.as_bytes()[18..].as_ref(), authority.key().as_ref()], bump, space = 4 + 4 + 32 + 8 )]
+    #[account(init, payer = authority, seeds = [CANDIDATE_SEED, application_id.as_bytes()[..18].as_ref(), application_id.as_bytes()[18..].as_ref(), authority.key().as_ref()], bump, space = 8 + 8 + 32 + 8 )]
     pub base_account: Account<'info, CandidateParameter>,
     #[account(mut, seeds = [JOB_SEED, job_ad_id.as_bytes()[..18].as_ref(), job_ad_id.as_bytes()[18..].as_ref()], bump = job_bump, seeds::program = job_program.key())]
     pub job_account: Box<Account<'info, JobStakingParameter>>,
@@ -265,15 +285,15 @@ pub struct Stake<'info> {
     pub escrow_wallet_state: Account<'info, TokenAccount>,
     #[account(
         mut,
-        // constraint=wallet_to_withdraw_from.owner == authority.key(),
-        // constraint=wallet_to_withdraw_from.mint == token_mint.key()
+        constraint=wallet_to_withdraw_from.owner == authority.key(),
+        constraint=wallet_to_withdraw_from.mint == token_mint.key()
     )]
     pub wallet_to_withdraw_from: Account<'info, TokenAccount>,
     pub system_program: Program<'info, System>,
     pub token_program: Program<'info, Token>,
     pub rent: Sysvar<'info, Rent>,
     ///CHECK:   
-    pub instruction: AccountInfo<'info> 
+    pub instruction: AccountInfo<'info>,
 }
 
 #[derive(Accounts)]
@@ -302,8 +322,8 @@ pub struct Unstake<'info> {
     pub escrow_wallet_state: Account<'info, TokenAccount>,
     #[account(
         mut,
-        // constraint=wallet_to_withdraw_from.owner == authority.key(),
-        // constraint=wallet_to_withdraw_from.mint == token_mint.key()
+        constraint=wallet_to_deposit_to.owner == authority.key(),
+        constraint=wallet_to_deposit_to.mint == token_mint.key()
     )]
     pub wallet_to_deposit_to: Account<'info, TokenAccount>,
     pub job_program: Program<'info, Job>,
@@ -311,20 +331,25 @@ pub struct Unstake<'info> {
     pub token_program: Program<'info, Token>,
     pub rent: Sysvar<'info, Rent>,
     ///CHECK:
-    pub instruction: AccountInfo<'info>
+    pub instruction: AccountInfo<'info>,
 }
 
 #[account]
 pub struct CandidateParameter {
     pub authority: Pubkey,  // 32 bytes
-    pub staked_amount: u32, // 4 bytes
-    pub reward_amount: u32, // 4 bytes
+    pub staked_amount: u64, // 8 bytes
+    pub reward_amount: u64, // 8 bytes
 }
 
 impl CandidateParameter {
     pub fn reset(&mut self, authority: Pubkey) {
         self.authority = authority;
         self.staked_amount = 0;
+        self.reward_amount = 0;
+    }
+    pub fn reset_after_unstake(&mut self) {
+        self.staked_amount = 0;
+        self.reward_amount = 0;
     }
 }
 
@@ -338,4 +363,10 @@ pub enum ErrorCode {
     StatusPending,
     #[msg("The staked application is selected but u would have to wait before u can withdraw")]
     SelectedButCantTransfer,
+    #[msg("Stake amount overflow")]
+    StakeAmountOverflow,
+    #[msg("Reward amount overflow")]
+    RewardAmountOverflow,
+    #[msg("You have already unstaked")]
+    AlreadyUnstaked
 }

@@ -1,5 +1,5 @@
 use crate::{ApplicationParameter, JobStatus};
-use anchor_lang::prelude::ErrorCode;
+use anchor_lang::prelude::*;
 
 use std::cmp::{max, min};
 
@@ -22,17 +22,21 @@ impl<'a> RewardCalculator<'a> {
         }
     }
 
-    pub fn calculate_reward(&self, k: u32) -> Result<u32, ErrorCode> {
+    pub fn calculate_reward(&self, k: u64) -> Result<u64> {
         // for simplicity -> k: amount_pledged_to_stake
-        let mut k = k;
+        let mut k: u64 = k;
         let w = self.application_parameters.staked_amount;
         let max_allowed_staked = self.application_parameters.max_allowed_staked;
 
-        let available_amount_to_stake = max_allowed_staked - w;
-        if self.application_parameters.status != JobStatus::Pending || k > available_amount_to_stake
-        {
-            // TODO: return a custom created error
-            return Err(ErrorCode::RequireViolated);
+        let available_amount_to_stake = max_allowed_staked
+            .checked_sub(w)
+            .ok_or_else(|| ErrorCode::AmountUnderflow)?;
+        msg!("{}", available_amount_to_stake);
+        if self.application_parameters.status != JobStatus::Pending {
+            return Err(error!(ErrorCode::StatusNotPending));
+        }
+        if k > available_amount_to_stake {
+            return Err(error!(ErrorCode::NotEnoughStakeAvailable));
         }
 
         let k_tier_1 = min(
@@ -63,13 +67,21 @@ impl<'a> RewardCalculator<'a> {
                 ),
             ),
         );
-        k = k.saturating_sub(k_tier_3);
 
         let a = 3;
         let b = 2;
-        let c = 1;
-        Ok(k_tier_1 * a + k_tier_2 * b + k_tier_3 * c)
+        Ok(k_tier_1 * a + k_tier_2 * b + k_tier_3 * 3 / 2)
     }
+}
+
+#[error_code]
+pub enum ErrorCode {
+    #[msg("Amount underflowed")]
+    AmountUnderflow,
+    #[msg("Status isn't Pending")]
+    StatusNotPending,
+    #[msg("Staking available is less than what the user wants to stake")]
+    NotEnoughStakeAvailable,
 }
 
 #[cfg(test)]
@@ -81,16 +93,17 @@ mod test {
     use super::*;
 
     fn new_application_parameters(
-        staked_amount: u32,
-        max_allowed_staked: u32,
-        total_reward_amount: u32
+        staked_amount: u64,
+        max_allowed_staked: u64,
+        total_reward_amount: u64,
     ) -> ApplicationParameter {
         ApplicationParameter {
             authority: Pubkey::new_from_array([0; 32]),
             status: JobStatus::Pending,
             staked_amount,
             max_allowed_staked,
-            total_reward_amount
+            total_reward_amount,
+            update_reward_value_in_job: false,
         }
     }
 
@@ -118,7 +131,7 @@ mod test {
         let reward_calculator = RewardCalculator {
             application_parameters: &application_parameters,
         };
-        assert_eq!(reward_calculator.calculate_reward(10).unwrap(), 10);
+        assert_eq!(reward_calculator.calculate_reward(10).unwrap(), 15);
     }
 
     #[test]
@@ -136,7 +149,10 @@ mod test {
         let reward_calculator = RewardCalculator {
             application_parameters: &application_parameters,
         };
-        assert_eq!(reward_calculator.calculate_reward(40).unwrap(), 0 + 32 + 24);
+        assert_eq!(
+            reward_calculator.calculate_reward(40).unwrap(),
+            0 + 16 * 2 + 24 * 3 / 2
+        );
     }
 
     #[test]
@@ -147,7 +163,7 @@ mod test {
         };
         assert_eq!(
             reward_calculator.calculate_reward(100).unwrap(),
-            99 + 66 + 34
+            33 * 3 + 33 * 2 + 34 * 3 / 2
         );
     }
 

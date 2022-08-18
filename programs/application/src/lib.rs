@@ -15,6 +15,9 @@ const APPLICATION_SEED: &'static [u8] = b"application";
 const GENERAL_SEED: &'static [u8] = b"general";
 const JOB_SEED: &'static [u8] = b"jobfactory";
 
+const CANDIDATE_STAKING_PROGRAM_ID: &'static str = "BF1jhf5eA5X1Tu8JByv8htnkUaG6WzmYEMLx2kbZ7YiW";
+
+
 #[program]
 pub mod application {
     use super::*;
@@ -24,7 +27,7 @@ pub mod application {
         _job_ad_id: String,
         _application_id: String,
         _general_bump: u8,
-        max_allowed_stake: u32
+        max_allowed_stake: u64
     ) -> Result<()> {
 
         let parameter = &mut ctx.accounts.base_account;
@@ -42,8 +45,9 @@ pub mod application {
         job_bump: u8,
         status: JobStatus,
     ) -> Result<()> {
-        ctx.accounts.base_account.status = status;
-        if ctx.accounts.base_account.status == JobStatus::Selected || ctx.accounts.base_account.status == JobStatus::SelectedButCantWithdraw {
+        let parameters = &mut ctx.accounts.base_account; 
+        parameters.status = status;
+        if !parameters.update_reward_value_in_job && (parameters.status == JobStatus::Selected || parameters.status == JobStatus::SelectedButCantWithdraw ){
                 let bump_vector = application_bump.to_le_bytes();
                 let inner = vec![
                     APPLICATION_SEED,
@@ -60,28 +64,28 @@ pub mod application {
                 };
                 let cpi_program = ctx.accounts.job_program.to_account_info();
                 let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, outer.as_slice());
-                job::cpi::update_rewards(cpi_ctx, job_id.clone(),job_bump, ctx.accounts.base_account.total_reward_amount)?;
+                job::cpi::update_rewards(cpi_ctx, job_id.clone(),job_bump, parameters.total_reward_amount)?;
+                parameters.update_reward_value_in_job = true;
         }
         Ok(())
     }
 
-    pub fn update_stake_amount(ctx: Context<UpdateStakeAmount>, _application_id: String, _application_bump: u8, stake_amount: u32, reward_amount: u32) -> Result<()> {
+    pub fn update_stake_amount(ctx: Context<UpdateStakeAmount>, _application_id: String, _application_bump: u8, stake_amount: u64, reward_amount: u64) -> Result<()> {
         msg!("cpi call is made yippee");
-        let candidate_staking_program_id: &str = "BF1jhf5eA5X1Tu8JByv8htnkUaG6WzmYEMLx2kbZ7YiW";
 
         let ixns = ctx.accounts.instruction.to_account_info();
         let current_index = tx_instructions::load_current_index_checked(&ixns)? as usize;
         let current_ixn = tx_instructions::load_instruction_at_checked(current_index, &ixns)?;
 
         msg!("Current program ID: {} application program ID: {}", current_ixn.program_id, *ctx.program_id);
-        if current_ixn.program_id.to_string() != candidate_staking_program_id {
+        if current_ixn.program_id.to_string() != CANDIDATE_STAKING_PROGRAM_ID {
             return Err(error!(ErrorCode::InvalidCall));
         }
         else {
            let parameters = &mut ctx.accounts.base_account;
            msg!("{}", parameters.staked_amount);
-           parameters.staked_amount += stake_amount; 
-           parameters.total_reward_amount += reward_amount;
+           parameters.staked_amount = parameters.staked_amount.checked_add(stake_amount).ok_or_else(|| ErrorCode::StakeAmountOverflow)?; 
+           parameters.total_reward_amount = parameters.total_reward_amount.checked_add(reward_amount).ok_or_else(|| ErrorCode::TotalRewardAmountOverflow)?;
         }
         Ok(())
     }
@@ -97,7 +101,7 @@ pub struct Initialize<'info> {
         seeds = [APPLICATION_SEED, application_id.as_bytes()[..18].as_ref(), application_id.as_bytes()[18..].as_ref()],
         bump, 
         constraint = authority.key() == general_account.authority @ ErrorCode::InvalidAuthority,
-        space = 8 + 32 + 1 + 4 + 4 + 4
+        space = 8 + 32 + 1 + 8 + 8 + 8 + 1
     )]
     pub base_account: Account<'info, ApplicationParameter>,
     #[account(mut, seeds = [GENERAL_SEED], bump = general_bump, seeds::program = general_program.key())]
@@ -149,13 +153,14 @@ pub enum JobStatus {
 pub struct ApplicationParameter {
     pub authority: Pubkey,       // 32 bytes
     pub status: JobStatus,       // 1 byte
-    pub staked_amount: u32,      // 4 bytes
-    pub max_allowed_staked: u32, // 4 bytes
-    pub total_reward_amount: u32 // 4 bytes
+    pub staked_amount: u64,      // 8 bytes
+    pub max_allowed_staked: u64, // 8 bytes
+    pub total_reward_amount: u64, // 8 bytes
+    pub update_reward_value_in_job: bool // 1 byte
 }
 
 impl ApplicationParameter {
-    pub fn reset(&mut self, authority: Pubkey, max_allowed_staked: u32) {
+    pub fn reset(&mut self, authority: Pubkey, max_allowed_staked: u64) {
         self.authority = authority;
         self.status = JobStatus::Pending;
         self.staked_amount = 0;
@@ -169,6 +174,10 @@ pub enum ErrorCode {
     InvalidAuthority,
     #[msg("Invalid status value")]
     InvalidStatus,
-    #[msg("Program Is not called By CPI")]
+    #[msg("Program is not called By CPI")]
     InvalidCall,
+    #[msg("Stake amount overflow")]
+    StakeAmountOverflow,
+    #[msg("Total reward amount overflow")]
+    TotalRewardAmountOverflow,
 }
