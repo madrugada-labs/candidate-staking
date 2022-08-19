@@ -12,7 +12,6 @@ const GENERAL_SEED: &'static [u8] = b"general";
 const CANDIDATE_STAKING_PROGRAM_ID: &'static str = "BF1jhf5eA5X1Tu8JByv8htnkUaG6WzmYEMLx2kbZ7YiW";
 const APPLICATION_PROGRAM_ID: &'static str = "Fxe3yzwDaKnK8e2Mj4CqrK2YvTbFaUhqmnuTyH1dJWcX";
 
-
 #[program]
 pub mod job {
     use super::*;
@@ -29,6 +28,7 @@ pub mod job {
         parameters.job_ad_id = job_ad_id;
         parameters.max_amount_per_application = max_amount_per_application;
         parameters.total_reward_to_be_given = 0;
+        parameters.mint = ctx.accounts.general_account.mint;
 
         Ok(())
     }
@@ -39,7 +39,6 @@ pub mod job {
         _job_bump: u8,
         reward_amount: u64,
     ) -> Result<()> {
-
         let ixns = ctx.accounts.instructions.to_account_info();
         let current_index = tx_instructions::load_current_index_checked(&ixns)? as usize;
         let current_ixn = tx_instructions::load_instruction_at_checked(current_index, &ixns)?;
@@ -57,7 +56,10 @@ pub mod job {
         } else {
             let parameters = &mut ctx.accounts.job_account;
 
-            parameters.total_reward_to_be_given = parameters.total_reward_to_be_given.checked_add(reward_amount).ok_or_else(|| ErrorCode::TotalRewardAmountOverflow)?;
+            parameters.total_reward_to_be_given = parameters
+                .total_reward_to_be_given
+                .checked_add(reward_amount)
+                .ok_or_else(|| ErrorCode::TotalRewardAmountOverflow)?;
         }
 
         Ok(())
@@ -119,7 +121,7 @@ pub mod job {
 #[derive(Accounts)]
 #[instruction(job_ad_id: String, general_bump: u8)]
 pub struct Initialize<'info> {
-    #[account(init, payer = authority, seeds = [JOB_FACTORY_SEED, job_ad_id.as_bytes()[..18].as_ref(), job_ad_id.as_bytes()[18..].as_ref()], bump, constraint = authority.key() == general_account.authority @ ErrorCode::InvalidAuthority, space = 8 + 32 + 40 + 8 + 8 )]
+    #[account(init, payer = authority, seeds = [JOB_FACTORY_SEED, job_ad_id.as_bytes()[..18].as_ref(), job_ad_id.as_bytes()[18..].as_ref()], bump, constraint = authority.key() == general_account.authority @ ErrorCode::InvalidAuthority, space = 8 + 32 + 32 + 40 + 8 + 8 )]
     pub base_account: Account<'info, JobStakingParameter>,
     #[account(mut, seeds = [GENERAL_SEED], bump = general_bump, seeds::program = general_program.key())]
     pub general_account: Account<'info, GeneralParameter>,
@@ -134,6 +136,7 @@ pub struct Initialize<'info> {
 pub struct UnstakeToken<'info> {
     #[account(mut, seeds = [JOB_FACTORY_SEED, job_ad_id.as_bytes()[..18].as_ref(), job_ad_id.as_bytes()[18..].as_ref()], bump = job_bump)]
     pub job_account: Box<Account<'info, JobStakingParameter>>,
+    #[account(constraint = token_mint.key() == job_account.mint @ ErrorCode::InvalidTokenMint)]
     pub token_mint: Account<'info, Mint>,
     #[account(mut)]
     pub authority: Signer<'info>,
@@ -168,6 +171,7 @@ pub struct UpdateRewards<'info> {
 #[account]
 pub struct JobStakingParameter {
     pub authority: Pubkey,               // 32 bytes
+    pub mint: Pubkey,                    // 32 bytes
     pub job_ad_id: String,               // 40 bytes
     pub max_amount_per_application: u64, // 8 bytes
     pub total_reward_to_be_given: u64,   // 8 bytes
@@ -188,4 +192,6 @@ pub enum ErrorCode {
     InvalidCall,
     #[msg("Total reward amount overflow")]
     TotalRewardAmountOverflow,
+    #[msg("The token mint should should match to the one which was deposited")]
+    InvalidTokenMint,
 }

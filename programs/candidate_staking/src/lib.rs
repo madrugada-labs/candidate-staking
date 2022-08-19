@@ -50,74 +50,72 @@ pub mod candidate_staking {
         let application_parameter = &mut ctx.accounts.application_account;
         let candidate_parameter = &mut ctx.accounts.base_account;
 
-        if general_parameter.mint == ctx.accounts.token_mint.key() {
-            msg!("Mint is matching");
+        let already_staked_amount = application_parameter.staked_amount;
+        let max_amount = application_parameter.max_allowed_staked;
 
-            let already_staked_amount = application_parameter.staked_amount;
-            let max_amount = application_parameter.max_allowed_staked;
+        if already_staked_amount
+            .checked_add(amount)
+            .ok_or_else(|| ErrorCode::MaxAmountExceeded)?
+            < max_amount
+        {
+            msg!("You can transfer");
+            msg!("Transfer is initiated");
 
-            if already_staked_amount
+            let reward_calculator = RewardCalculator::new(application_parameter.as_ref());
+
+            candidate_parameter.staked_amount = candidate_parameter
+                .staked_amount
                 .checked_add(amount)
-                .ok_or_else(|| ErrorCode::MaxAmountExceeded)?
-                < max_amount
-            {
-                msg!("You can transfer");
-                msg!("Transfer is initiated");
+                .ok_or_else(|| ErrorCode::StakeAmountOverflow)?;
+            let reward_amount = reward_calculator.calculate_reward(amount)?;
+            candidate_parameter.reward_amount = candidate_parameter
+                .reward_amount
+                .checked_add(reward_amount)
+                .ok_or_else(|| ErrorCode::RewardAmountOverflow)?;
 
-                let reward_calculator = RewardCalculator::new(application_parameter.as_ref());
+            let authority_key = ctx.accounts.authority.key();
 
-                candidate_parameter.staked_amount = candidate_parameter.staked_amount.checked_add(amount).ok_or_else(|| ErrorCode::StakeAmountOverflow)?;
-                let reward_amount = reward_calculator.calculate_reward(amount)?;
-                candidate_parameter.reward_amount = candidate_parameter.reward_amount.checked_add(reward_amount).ok_or_else(|| ErrorCode::RewardAmountOverflow)?;
+            let bump_vector = base_bump.to_le_bytes();
+            let inner = vec![
+                CANDIDATE_SEED,
+                application_id.as_bytes()[..18].as_ref(),
+                application_id.as_bytes()[18..].as_ref(),
+                authority_key.as_ref(),
+                bump_vector.as_ref(),
+            ];
+            let outer = vec![inner.as_slice()];
 
-                let authority_key = ctx.accounts.authority.key();
+            let cpi_accounts = UpdateStakeAmount {
+                base_account: ctx.accounts.application_account.to_account_info(),
+                authority: ctx.accounts.authority.to_account_info(),
+                instruction: ctx.accounts.instruction.to_account_info(),
+            };
+            let cpi_program = ctx.accounts.application_program.to_account_info();
+            let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, outer.as_slice());
+            application::cpi::update_stake_amount(
+                cpi_ctx,
+                application_id.clone(),
+                application_bump,
+                amount,
+                ctx.accounts.base_account.reward_amount,
+            )?;
 
-                let bump_vector = base_bump.to_le_bytes();
-                let inner = vec![
-                    CANDIDATE_SEED,
-                    application_id.as_bytes()[..18].as_ref(),
-                    application_id.as_bytes()[18..].as_ref(),
-                    authority_key.as_ref(),
-                    bump_vector.as_ref(),
-                ];
-                let outer = vec![inner.as_slice()];
+            // Below is the actual instruction that we are going to send to the Token program.
+            let transfer_instruction = Transfer {
+                from: ctx.accounts.wallet_to_withdraw_from.to_account_info(),
+                to: ctx.accounts.escrow_wallet_state.to_account_info(),
+                authority: ctx.accounts.authority.to_account_info(),
+            };
+            let cpi_ctx = CpiContext::new_with_signer(
+                ctx.accounts.token_program.to_account_info(),
+                transfer_instruction,
+                outer.as_slice(), //signer PDA
+            );
 
-                let cpi_accounts = UpdateStakeAmount {
-                    base_account: ctx.accounts.application_account.to_account_info(),
-                    authority: ctx.accounts.authority.to_account_info(),
-                    instruction: ctx.accounts.instruction.to_account_info(),
-                };
-                let cpi_program = ctx.accounts.application_program.to_account_info();
-                let cpi_ctx =
-                    CpiContext::new_with_signer(cpi_program, cpi_accounts, outer.as_slice());
-                application::cpi::update_stake_amount(
-                    cpi_ctx,
-                    application_id.clone(),
-                    application_bump,
-                    amount,
-                    ctx.accounts.base_account.reward_amount,
-                )?;
-
-                // Below is the actual instruction that we are going to send to the Token program.
-                let transfer_instruction = Transfer {
-                    from: ctx.accounts.wallet_to_withdraw_from.to_account_info(),
-                    to: ctx.accounts.escrow_wallet_state.to_account_info(),
-                    authority: ctx.accounts.authority.to_account_info(),
-                };
-                let cpi_ctx = CpiContext::new_with_signer(
-                    ctx.accounts.token_program.to_account_info(),
-                    transfer_instruction,
-                    outer.as_slice(), //signer PDA
-                );
-
-
-                anchor_spl::token::transfer(cpi_ctx, amount)?;
-                msg!("token is deposited");
-            } else {
-                return Err(error!(ErrorCode::MaxAmountExceeded));
-            }
+            anchor_spl::token::transfer(cpi_ctx, amount)?;
+            msg!("token is deposited");
         } else {
-            return Err(error!(ErrorCode::InvalidToken));
+            return Err(error!(ErrorCode::MaxAmountExceeded));
         }
 
         Ok(())
@@ -245,6 +243,7 @@ pub struct Initialize<'info> {
         token::authority = job_account,
     )]
     pub escrow_wallet_state: Account<'info, TokenAccount>,
+    #[account(constraint = token_mint.key() == job_account.mint @ ErrorCode::InvalidToken)]
     pub token_mint: Account<'info, Mint>,
     #[account(mut)]
     pub authority: Signer<'info>,
@@ -262,6 +261,7 @@ pub struct Stake<'info> {
     #[account(mut)]
     pub authority: Signer<'info>,
 
+    #[account(constraint = token_mint.key() == job_account.mint @ ErrorCode::InvalidToken)]
     pub token_mint: Account<'info, Mint>,
 
     #[account(mut, seeds = [GENERAL_SEED], bump = general_bump, seeds::program = general_program.key())]
@@ -306,6 +306,7 @@ pub struct Unstake<'info> {
     #[account(mut)]
     pub authority: Signer<'info>,
 
+    #[account(constraint = token_mint.key() == job_account.mint @ ErrorCode::InvalidToken)]
     pub token_mint: Account<'info, Mint>,
 
     #[account(mut, seeds = [APPLICATION_SEED, application_id.as_bytes()[..18].as_ref(), application_id.as_bytes()[18..].as_ref()], bump = application_bump, seeds::program = application_program.key())]
@@ -368,5 +369,5 @@ pub enum ErrorCode {
     #[msg("Reward amount overflow")]
     RewardAmountOverflow,
     #[msg("You have already unstaked")]
-    AlreadyUnstaked
+    AlreadyUnstaked,
 }
