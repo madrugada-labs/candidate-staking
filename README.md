@@ -52,4 +52,4 @@ AMOUNT_ALLWED_TO_STAKE (13/6)
 That's a **~2.16x expected return**!
 
 ## Smart contract architecture
-<img src="Screen Shot 2022-08-20 at 12.36.58 AM.png"/>
+<img src="smart contract flow.png"/>
