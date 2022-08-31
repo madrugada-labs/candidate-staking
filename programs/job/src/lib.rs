@@ -4,13 +4,13 @@ use anchor_spl::token::{Mint, Token, TokenAccount, Transfer};
 use general::program::General;
 use general::{self, GeneralParameter};
 
-declare_id!("69dteSt8rK7HLvku1kqXhw4UsmanCGa8sDcqxgeeYUS8");
+declare_id!("2hfgvbWKSzzFYRSeMSBHhA5qBYSFYPojVsf81hXVFbMk");
 
 const JOB_FACTORY_SEED: &'static [u8] = b"jobfactory";
 const GENERAL_SEED: &'static [u8] = b"general";
 
-const CANDIDATE_STAKING_PROGRAM_ID: &'static str = "BF1jhf5eA5X1Tu8JByv8htnkUaG6WzmYEMLx2kbZ7YiW";
-const APPLICATION_PROGRAM_ID: &'static str = "Fxe3yzwDaKnK8e2Mj4CqrK2YvTbFaUhqmnuTyH1dJWcX";
+const CANDIDATE_STAKING_PROGRAM_ID: &'static str = "GCPpQABMRJ7bhRCqaYtBo7G1b5popATvcXDs2c1bK4hW";
+const APPLICATION_PROGRAM_ID: &'static str = "7NBejsPH8cgtSkmqgSKyUffx8fYnrGCDp9fxePdjRXe7";
 
 #[program]
 pub mod job {

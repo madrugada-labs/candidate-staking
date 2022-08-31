@@ -1,16 +1,16 @@
 [features]
 seeds = false
-[programs.localnet]
-candidate_staking = "BF1jhf5eA5X1Tu8JByv8htnkUaG6WzmYEMLx2kbZ7YiW"
-job = "69dteSt8rK7HLvku1kqXhw4UsmanCGa8sDcqxgeeYUS8"
-application = "Fxe3yzwDaKnK8e2Mj4CqrK2YvTbFaUhqmnuTyH1dJWcX"
-general = "CYSyfydPYcjjf3uXPHK5sPTpucuWy5vP1BYqcjKDZzB3" 
+[programs.devnet]
+candidate_staking = "GCPpQABMRJ7bhRCqaYtBo7G1b5popATvcXDs2c1bK4hW"
+job = "2hfgvbWKSzzFYRSeMSBHhA5qBYSFYPojVsf81hXVFbMk"
+application = "7NBejsPH8cgtSkmqgSKyUffx8fYnrGCDp9fxePdjRXe7"
+general = "23yfjFQCZoBgNoBrP7JwFUfGoPc4GYcxJXL9NxLensBt" 
 
 [registry]
 url = "https://anchor.projectserum.com"
 
 [provider]
-cluster = "localnet"
+cluster = "devnet"
 wallet = "~/.config/solana/id.json"
 
 [scripts]

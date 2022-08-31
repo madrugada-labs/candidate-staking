@@ -9,7 +9,7 @@ use job::cpi::accounts::UnstakeToken;
 use job::program::Job;
 use job::{self, JobStakingParameter};
 
-declare_id!("BF1jhf5eA5X1Tu8JByv8htnkUaG6WzmYEMLx2kbZ7YiW");
+declare_id!("GCPpQABMRJ7bhRCqaYtBo7G1b5popATvcXDs2c1bK4hW");
 
 const CANDIDATE_SEED: &'static [u8] = b"candidate";
 const APPLICATION_SEED: &'static [u8] = b"application";

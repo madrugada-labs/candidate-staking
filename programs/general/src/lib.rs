@@ -2,7 +2,7 @@ use anchor_lang::prelude::*;
 use anchor_spl::token::Mint;    
 
 
-declare_id!("CYSyfydPYcjjf3uXPHK5sPTpucuWy5vP1BYqcjKDZzB3");
+declare_id!("23yfjFQCZoBgNoBrP7JwFUfGoPc4GYcxJXL9NxLensBt");
 
 const GENERAL_SEED: &'static [u8] = b"general";
 
