@@ -9,13 +9,13 @@ use anchor_lang::solana_program::sysvar::instructions as tx_instructions;
 
 use anchor_lang::prelude::*;
 
-declare_id!("Fxe3yzwDaKnK8e2Mj4CqrK2YvTbFaUhqmnuTyH1dJWcX");
+declare_id!("7NBejsPH8cgtSkmqgSKyUffx8fYnrGCDp9fxePdjRXe7");
 
 const APPLICATION_SEED: &'static [u8] = b"application";
 const GENERAL_SEED: &'static [u8] = b"general";
 const JOB_SEED: &'static [u8] = b"jobfactory";
 
-const CANDIDATE_STAKING_PROGRAM_ID: &'static str = "BF1jhf5eA5X1Tu8JByv8htnkUaG6WzmYEMLx2kbZ7YiW";
+const CANDIDATE_STAKING_PROGRAM_ID: &'static str = "GCPpQABMRJ7bhRCqaYtBo7G1b5popATvcXDs2c1bK4hW";
 
 
 #[program]
@@ -101,7 +101,7 @@ pub struct Initialize<'info> {
         seeds = [APPLICATION_SEED, application_id.as_bytes()[..18].as_ref(), application_id.as_bytes()[18..].as_ref()],
         bump, 
         constraint = authority.key() == general_account.authority @ ErrorCode::InvalidAuthority,
-        space = 8 + 32 + 1 + 8 + 8 + 8 + 1
+        space = 8 + 32 + 8 + 8 + 8 + 8 + 1
     )]
     pub base_account: Account<'info, ApplicationParameter>,
     #[account(mut, seeds = [GENERAL_SEED], bump = general_bump, seeds::program = general_program.key())]
